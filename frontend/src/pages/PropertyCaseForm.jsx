@@ -211,13 +211,16 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
         </button>
       </div>
 
-      {/* ─── Messages ─── */}
-      {message && (
-        <div className={`notice notice-${message.type}`} style={{ marginBottom: 20 }}>
-          {message.text}
-          <button type="button" className="notice-close" onClick={() => setMessage(null)}>×</button>
-        </div>
-      )}
+      {/* ─── Scrollable Form Body ─── */}
+      <div className="open-form-body">
+
+        {/* ─── Messages ─── */}
+        {message && (
+          <div className={`notice notice-${message.type}`} style={{ marginBottom: 20 }}>
+            {message.text}
+            <button type="button" className="notice-close" onClick={() => setMessage(null)}>×</button>
+          </div>
+        )}
 
       {/* ─── Validation Errors ─── */}
       {validationErrors.length > 0 && (
@@ -350,7 +353,7 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
           <div className="card-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: '1.3rem' }}>✍️</span>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>Declaration & Valuer Sign-off</h3>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>Declaration &amp; Valuer Sign-off</h3>
             </div>
           </div>
           <div className="card-body">
@@ -359,7 +362,7 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
                 {template.declarationText}
               </p>
             </div>
-            <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+            <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
               <div className="form-field">
                 <label className="property-field-label">Valuer Name</label>
                 <input className="form-input" value={formData.valuerName || ''} onChange={(e) => updateField('valuerName', e.target.value)} />
@@ -380,21 +383,25 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
           </div>
         </div>
 
-        {/* ─── Bottom Save Action Bar ─── */}
-        <div className="open-form-bottombar">
-          <button type="button" className="btn btn-secondary" onClick={handleSaveDraft}>
-            💾 Save Draft
-          </button>
-          {onGenerateReport && (
-            <button type="button" className="btn btn-success btn-lg" onClick={handleDownloadReport}>
-              📊 Generate & Download Excel Report
-            </button>
-          )}
-          <button type="submit" className="btn btn-primary btn-lg" disabled={submitting}>
-            {submitting ? 'Saving Case Details...' : '✅ Save & Submit Property Case'}
-          </button>
-        </div>
+        {/* bottom padding so last card isn't hidden behind bottom bar */}
+        <div style={{ height: 20 }} />
       </form>
+      </div>{/* end open-form-body */}
+
+      {/* ─── Bottom Save Action Bar (outside form body, always visible) ─── */}
+      <div className="open-form-bottombar">
+        <button type="button" className="btn btn-secondary" onClick={handleSaveDraft}>
+          💾 Save Draft
+        </button>
+        {onGenerateReport && (
+          <button type="button" className="btn btn-success btn-lg" onClick={handleDownloadReport}>
+            📊 Generate &amp; Download Excel Report
+          </button>
+        )}
+        <button type="button" className="btn btn-primary btn-lg" disabled={submitting} onClick={handleFormSubmit}>
+          {submitting ? 'Saving Case Details...' : '✅ Save & Submit Property Case'}
+        </button>
+      </div>
     </div>
   )
 }

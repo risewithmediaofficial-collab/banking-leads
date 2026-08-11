@@ -1694,38 +1694,93 @@ tbody tr:hover { background: var(--gray-50); }
 }
 
 /* ─── Open Form Layout Styles ─── */
-.open-form-topbar {
-  position: sticky; top: 0; z-index: 100;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 20px; background: rgba(255,255,255,0.95); backdrop-filter: blur(8px);
-  border-radius: var(--radius-xl); border: 1px solid var(--gray-200);
-  box-shadow: var(--shadow-md); margin-bottom: 14px; flex-wrap: wrap; gap: 12px;
+
+/* Shell: full viewport height flex column so sticky children work */
+.property-form-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+  background: var(--gray-50);
 }
 
-.open-form-nav-tabs {
-  display: flex; gap: 6px; overflow-x: auto; padding: 6px 4px 10px;
-  margin-bottom: 20px; scrollbar-width: thin; position: sticky; top: 64px; z-index: 90;
-  background: var(--gray-50); border-radius: var(--radius-lg);
+/* Topbar: always visible at the top, never scrolls away */
+.open-form-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  flex-wrap: wrap;
+  gap: 10px;
 }
+
+/* Section nav tabs: sticky just below the topbar */
+.open-form-nav-tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 8px 16px 8px;
+  scrollbar-width: thin;
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.open-form-nav-tabs::-webkit-scrollbar { height: 3px; }
+.open-form-nav-tabs::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 99px; }
+
 .open-nav-tab {
-  display: flex; align-items: center; gap: 6px; padding: 7px 14px;
-  border-radius: 999px; border: 1.5px solid var(--gray-200); background: #fff;
-  color: var(--gray-600); font-size: 0.78rem; font-weight: 600; cursor: pointer;
-  white-space: nowrap; flex-shrink: 0; transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--gray-200);
+  background: var(--gray-50);
+  color: var(--gray-600);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s;
 }
 .open-nav-tab:hover { border-color: var(--brand-500); color: var(--brand-600); background: var(--brand-50); }
 .open-nav-tab.active { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: 0 2px 8px rgba(37,99,235,0.25); }
 
+/* Scrollable form body between topbar+tabs and bottom bar */
+.open-form-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 16px 0;
+  scroll-behavior: smooth;
+}
+.open-form-body::-webkit-scrollbar { width: 6px; }
+.open-form-body::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 99px; }
+
 .open-sections-stack { display: flex; flex-direction: column; gap: 20px; }
-.open-section-card { scroll-margin-top: 130px; transition: box-shadow 0.2s; }
+.open-section-card { scroll-margin-top: 20px; transition: box-shadow 0.2s; }
 .open-section-card:hover { box-shadow: var(--shadow-md); }
 
+/* Bottom bar: fixed at bottom, completely separate from scrollable form */
 .open-form-bottombar {
-  position: sticky; bottom: 20px; z-index: 100;
-  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
-  padding: 16px 24px; background: rgba(255,255,255,0.95); backdrop-filter: blur(8px);
-  border-radius: var(--radius-xl); border: 1px solid var(--gray-200);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.12); margin-top: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  background: #fff;
+  border-top: 2px solid var(--gray-200);
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.07);
 }
 
 /* ═══════════════════════════════════════════════════════════════
