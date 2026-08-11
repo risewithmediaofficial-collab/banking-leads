@@ -48,19 +48,55 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
   const [submittingBill, setSubmittingBill] = useState(false)
 
   const [fieldSearch, setFieldSearch] = useState('')
+  const [fieldFromDate, setFieldFromDate] = useState('')
+  const [fieldToDate, setFieldToDate] = useState('')
+
+  const parseDateToTimestamp = (dateVal) => {
+    if (!dateVal) return null
+    if (typeof dateVal === 'number') return dateVal
+    if (dateVal instanceof Date) return dateVal.getTime()
+    let str = String(dateVal).trim()
+    if (!str) return null
+    if (/^\d{2}\.\d{2}\.\d{4}/.test(str)) {
+      const [d, m, y] = str.split('.')
+      return new Date(`${y}-${m}-${d}T00:00:00`).getTime()
+    }
+    const parsed = new Date(str)
+    if (!isNaN(parsed.getTime())) return parsed.getTime()
+    return null
+  }
+
+  const isDateInRange = (dateVal, startDate, endDate) => {
+    if (!startDate && !endDate) return true
+    if (!dateVal) return false
+    const itemTs = parseDateToTimestamp(dateVal)
+    if (!itemTs) return false
+    if (startDate) {
+      const startTs = new Date(`${startDate}T00:00:00`).getTime()
+      if (itemTs < startTs) return false
+    }
+    if (endDate) {
+      const endTs = new Date(`${endDate}T23:59:59`).getTime()
+      if (itemTs > endTs) return false
+    }
+    return true
+  }
 
   const activeJobs = jobs.filter((j) => !['VERIFIED', 'COMPLETED'].includes(j.status))
   const completedJobs = jobs.filter((j) => ['VERIFIED', 'COMPLETED'].includes(j.status))
   const baseJobs = activeTab === 'active' ? activeJobs : completedJobs
   const displayedJobs = baseJobs.filter((j) => {
-    if (!fieldSearch.trim()) return true
-    const q = fieldSearch.toLowerCase()
-    return (
-      (j.customer || '').toLowerCase().includes(q) ||
-      (j.bank || '').toLowerCase().includes(q) ||
-      (j.branch || '').toLowerCase().includes(q) ||
-      (j.location || '').toLowerCase().includes(q)
-    )
+    if (!isDateInRange(j.initiationDate || j.createdAt || j.dueDate || j.visitedAt, fieldFromDate, fieldToDate)) return false
+    if (fieldSearch.trim()) {
+      const q = fieldSearch.toLowerCase()
+      return (
+        (j.customer || '').toLowerCase().includes(q) ||
+        (j.bank || '').toLowerCase().includes(q) ||
+        (j.branch || '').toLowerCase().includes(q) ||
+        (j.location || '').toLowerCase().includes(q)
+      )
+    }
+    return true
   })
   const selectedJob = jobs.find((j) => j.id === selectedJobId) || displayedJobs[0]
 
@@ -192,6 +228,35 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
             value={fieldSearch}
             onChange={(e) => setFieldSearch(e.target.value)}
           />
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            type="date"
+            className="form-input"
+            style={{ fontSize: '0.78rem', padding: '5px 8px', flex: 1, minWidth: 110 }}
+            value={fieldFromDate}
+            onChange={(e) => setFieldFromDate(e.target.value)}
+            title="Filter from date"
+          />
+          <input
+            type="date"
+            className="form-input"
+            style={{ fontSize: '0.78rem', padding: '5px 8px', flex: 1, minWidth: 110 }}
+            value={fieldToDate}
+            onChange={(e) => setFieldToDate(e.target.value)}
+            title="Filter to date"
+          />
+          {(fieldFromDate || fieldToDate) && (
+            <button
+              type="button"
+              className="secondary-btn"
+              style={{ fontSize: '0.72rem', padding: '4px 8px' }}
+              onClick={() => { setFieldFromDate(''); setFieldToDate('') }}
+            >
+              Clear
+            </button>
+          )}
         </div>
 
         <div className="task-list-tabs">

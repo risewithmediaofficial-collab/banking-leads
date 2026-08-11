@@ -32,6 +32,78 @@ const emptyLeadForm = { customer: '', customerPhone: '', bankCode: 'UJJ', branch
 
 const STATUS_COLOR = { NEW: 'badge-blue', ASSIGNED: 'badge-amber', VISIT_STARTED: 'badge-amber', VISITED_SITE: 'badge-purple', DETAILS_UPDATED: 'badge-purple', SUBMITTED_FOR_VERIFICATION: 'badge-blue', VERIFIED: 'badge-green', REVISION_REQUIRED: 'badge-red', COMPLETED: 'badge-green' }
 
+const parseDateToTimestamp = (dateVal) => {
+  if (!dateVal) return null
+  if (typeof dateVal === 'number') return dateVal
+  if (dateVal instanceof Date) return dateVal.getTime()
+  let str = String(dateVal).trim()
+  if (!str) return null
+  if (/^\d{2}\.\d{2}\.\d{4}/.test(str)) {
+    const [d, m, y] = str.split('.')
+    return new Date(`${y}-${m}-${d}T00:00:00`).getTime()
+  }
+  const parsed = new Date(str)
+  if (!isNaN(parsed.getTime())) return parsed.getTime()
+  return null
+}
+
+const isDateInRange = (dateVal, startDate, endDate) => {
+  if (!startDate && !endDate) return true
+  if (!dateVal) return false
+  const itemTs = parseDateToTimestamp(dateVal)
+  if (!itemTs) return false
+
+  if (startDate) {
+    const startTs = new Date(`${startDate}T00:00:00`).getTime()
+    if (itemTs < startTs) return false
+  }
+  if (endDate) {
+    const endTs = new Date(`${endDate}T23:59:59`).getTime()
+    if (itemTs > endTs) return false
+  }
+  return true
+}
+
+function DateRangeFilter({ startDate, endDate, onStartDateChange, onEndDateChange, onClear }) {
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', background: 'var(--gray-50)', padding: '4px 10px', borderRadius: 10, border: '1px solid var(--gray-200)' }}>
+      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--gray-600)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        📅 Date Range:
+      </span>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ fontSize: '0.72rem', color: 'var(--gray-500)' }}>From</span>
+        <input
+          type="date"
+          className="form-input"
+          style={{ padding: '4px 8px', fontSize: '0.78rem', height: 28, width: 'auto', background: '#fff' }}
+          value={startDate || ''}
+          onChange={(e) => onStartDateChange(e.target.value)}
+        />
+      </div>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ fontSize: '0.72rem', color: 'var(--gray-500)' }}>To</span>
+        <input
+          type="date"
+          className="form-input"
+          style={{ padding: '4px 8px', fontSize: '0.78rem', height: 28, width: 'auto', background: '#fff' }}
+          value={endDate || ''}
+          onChange={(e) => onEndDateChange(e.target.value)}
+        />
+      </div>
+      {(startDate || endDate) && (
+        <button
+          type="button"
+          className="secondary-btn"
+          style={{ padding: '3px 8px', fontSize: '0.72rem', height: 28, color: 'var(--red-600)', borderColor: 'var(--red-200)' }}
+          onClick={onClear}
+        >
+          ✕ Clear
+        </button>
+      )}
+    </div>
+  )
+}
+
 function Icon({ id }) {
   const map = {
     overview: <LayoutDashboard size={18} color="#2563eb" />,
@@ -55,6 +127,22 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [message, setMessage] = useState(null)
+
+  // Date Filter States
+  const [overviewFromDate, setOverviewFromDate] = useState('')
+  const [overviewToDate, setOverviewToDate] = useState('')
+
+  const [leadFromDate, setLeadFromDate] = useState('')
+  const [leadToDate, setLeadToDate] = useState('')
+
+  const [taskFromDate, setTaskFromDate] = useState('')
+  const [taskToDate, setTaskToDate] = useState('')
+
+  const [verifyFromDate, setVerifyFromDate] = useState('')
+  const [verifyToDate, setVerifyToDate] = useState('')
+
+  const [billingFromDate, setBillingFromDate] = useState('')
+  const [billingToDate, setBillingToDate] = useState('')
   const [leadForm, setLeadForm] = useState(emptyLeadForm)
   const [editingLeadId, setEditingLeadId] = useState('')
   const [showLeadModal, setShowLeadModal] = useState(false)
@@ -98,6 +186,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
       if (taskBankFilter !== 'ALL' && (job.bankCode || '').toUpperCase() !== taskBankFilter.toUpperCase()) return false
       if (taskStatusFilter !== 'ALL' && job.status !== taskStatusFilter) return false
       if (taskEmployeeFilter !== 'ALL' && job.assignedEmployee !== taskEmployeeFilter && job.assignedTo !== taskEmployeeFilter) return false
+      if (!isDateInRange(job.initiationDate || job.createdAt || job.dueDate || job.visitedAt, taskFromDate, taskToDate)) return false
       if (taskSearchQuery.trim()) {
         const q = taskSearchQuery.toLowerCase()
         return (
@@ -110,13 +199,14 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
       }
       return true
     })
-  }, [jobs, taskBankFilter, taskStatusFilter, taskEmployeeFilter, taskSearchQuery])
+  }, [jobs, taskBankFilter, taskStatusFilter, taskEmployeeFilter, taskFromDate, taskToDate, taskSearchQuery])
 
   const filteredVerifyJobs = useMemo(() => {
     return jobs.filter((job) => {
       const isPending = ['SUBMITTED_FOR_VERIFICATION', 'REVISION_REQUIRED', 'VERIFIED'].includes(job.status)
       if (!isPending) return false
       if (verifyStatusFilter !== 'ALL' && job.status !== verifyStatusFilter) return false
+      if (!isDateInRange(job.submittedAt || job.visitedAt || job.opinionDate || job.createdAt, verifyFromDate, verifyToDate)) return false
       if (verifySearchQuery.trim()) {
         const q = verifySearchQuery.toLowerCase()
         return (
@@ -128,7 +218,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
       }
       return true
     })
-  }, [jobs, verifyStatusFilter, verifySearchQuery])
+  }, [jobs, verifyStatusFilter, verifyFromDate, verifyToDate, verifySearchQuery])
 
   const filteredBillingJobs = useMemo(() => {
     return jobs.filter((job) => {
@@ -137,6 +227,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
       if (billingBankFilter !== 'ALL' && (job.bankCode || '').toUpperCase() !== billingBankFilter.toUpperCase()) return false
       if (billingStatusFilter === 'SUBMITTED' && !isSubmitted) return false
       if (billingStatusFilter === 'PENDING' && isSubmitted) return false
+      if (!isDateInRange(b.opinionDate || b.initiationDate || job.submittedAt || job.visitedAt || job.createdAt, billingFromDate, billingToDate)) return false
       if (billingSearchQuery.trim()) {
         const q = billingSearchQuery.toLowerCase()
         return (
@@ -149,7 +240,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
       }
       return true
     })
-  }, [jobs, billingBankFilter, billingStatusFilter, billingSearchQuery])
+  }, [jobs, billingBankFilter, billingStatusFilter, billingFromDate, billingToDate, billingSearchQuery])
 
   useEffect(() => {
     if (viewingBillJob) {
@@ -206,12 +297,13 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
   const filteredLeads = useMemo(() => leads.filter((lead) => {
     if (bankFilter !== 'ALL' && (lead.bankCode || '').toUpperCase() !== bankFilter) return false
     if (statusFilter !== 'ALL' && (lead.status || 'NEW').toUpperCase() !== statusFilter) return false
+    if (!isDateInRange(lead.receivedDate || lead.createdAt || lead.date, leadFromDate, leadToDate)) return false
     if (leadSearchQuery.trim()) {
       const q = leadSearchQuery.toLowerCase()
       return (lead.customer || '').toLowerCase().includes(q) || (lead.customerPhone || '').includes(q) || (lead.bankRefNo || '').toLowerCase().includes(q) || (lead.branch || '').toLowerCase().includes(q) || (lead.location || '').toLowerCase().includes(q)
     }
     return true
-  }), [leads, bankFilter, statusFilter, leadSearchQuery])
+  }), [leads, bankFilter, statusFilter, leadFromDate, leadToDate, leadSearchQuery])
 
   /* ─── Handlers ─── */
   const handleLeadSubmit = async (e) => {
@@ -441,9 +533,18 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
         {/* ══ OVERVIEW ══ */}
         {activeSection === 'overview' && (
           <div>
-            <div className="page-header">
-              <h2>Operations Dashboard</h2>
-              <p>Monitor all bank leads, field tasks, verifications and billing activity</p>
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <h2>Operations Dashboard</h2>
+                <p>Monitor all bank leads, field tasks, verifications and billing activity</p>
+              </div>
+              <DateRangeFilter
+                startDate={overviewFromDate}
+                endDate={overviewToDate}
+                onStartDateChange={setOverviewFromDate}
+                onEndDateChange={setOverviewToDate}
+                onClear={() => { setOverviewFromDate(''); setOverviewToDate('') }}
+              />
             </div>
 
             <div className="stats-grid">
@@ -640,6 +741,13 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                 <select className="table-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                   <option value="ALL">All Status</option><option value="NEW">New</option><option value="ASSIGNED">Assigned</option>
                 </select>
+                <DateRangeFilter
+                  startDate={leadFromDate}
+                  endDate={leadToDate}
+                  onStartDateChange={setLeadFromDate}
+                  onEndDateChange={setLeadToDate}
+                  onClear={() => { setLeadFromDate(''); setLeadToDate('') }}
+                />
                 <span style={{ fontSize: '0.82rem', color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{filteredLeads.length} leads</span>
               </div>
               <div className="table-scroll">
@@ -804,6 +912,13 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                     <option key={emp.id || emp._id} value={emp.name}>{emp.name}</option>
                   ))}
                 </select>
+                <DateRangeFilter
+                  startDate={taskFromDate}
+                  endDate={taskToDate}
+                  onStartDateChange={setTaskFromDate}
+                  onEndDateChange={setTaskToDate}
+                  onClear={() => { setTaskFromDate(''); setTaskToDate('') }}
+                />
                 <span style={{ fontSize: '0.82rem', color: 'var(--gray-500)', fontWeight: 700, whiteSpace: 'nowrap' }}>
                   {filteredTasks.length} tasks
                 </span>
@@ -865,6 +980,13 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                   <option value="REVISION_REQUIRED">Needs Correction</option>
                   <option value="VERIFIED">Verified</option>
                 </select>
+                <DateRangeFilter
+                  startDate={verifyFromDate}
+                  endDate={verifyToDate}
+                  onStartDateChange={setVerifyFromDate}
+                  onEndDateChange={setVerifyToDate}
+                  onClear={() => { setVerifyFromDate(''); setVerifyToDate('') }}
+                />
                 <span style={{ fontSize: '0.82rem', color: 'var(--gray-500)', fontWeight: 700, whiteSpace: 'nowrap' }}>
                   {filteredVerifyJobs.length} submissions
                 </span>
@@ -1125,6 +1247,13 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                   <option value="SUBMITTED">Submitted by Employee</option>
                   <option value="PENDING">Pending Submission</option>
                 </select>
+                <DateRangeFilter
+                  startDate={billingFromDate}
+                  endDate={billingToDate}
+                  onStartDateChange={setBillingFromDate}
+                  onEndDateChange={setBillingToDate}
+                  onClear={() => { setBillingFromDate(''); setBillingToDate('') }}
+                />
               </div>
 
               <div className="card-body" style={{ padding: 0 }}>
