@@ -1,0 +1,29 @@
+name: Deploy to Hostinger VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: 🚀 Deploy to Hostinger VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Execute Remote SSH Commands & Deploy Docker
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 10m
+          script: |
+            cd /docker/banking-leads
+            git pull origin main
+            docker compose up -d --build

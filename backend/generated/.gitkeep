@@ -1,0 +1,2 @@
+# This directory stores generated Excel reports (vendor bills, technical reports).
+# Kept in Git to ensure the directory exists in Docker and fresh installs.

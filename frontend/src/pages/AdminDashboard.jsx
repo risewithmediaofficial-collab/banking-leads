@@ -1,0 +1,1640 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  LayoutDashboard,
+  FolderPlus,
+  PlusCircle,
+  ListChecks,
+  CheckCircle2,
+  BarChart3,
+  Receipt,
+  Users,
+  Building2,
+  Plus,
+  FileSpreadsheet,
+  Download,
+  Edit3,
+  Trash2,
+  X,
+  Search,
+  Check,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react'
+import { getBillingSummary } from '../services/api'
+
+/* ─── Constants ─── */
+const billingDefaults = { bankCode: 'UJJ', invoiceNo: '007RKD/NHF/AUG/2026', invoiceDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), monthName: 'August', year: '2026' }
+const emptyBillingRow = { branch: 'KRISHNAGIRI', applicantName: '', initiationDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), propertyLocation: '', distanceFromBranch: '', stage: 'Fresh', amount: '1500', additionalFee: '', totalAmount: '', customerId: '', jobCardPrefix: 'K', jobCardNo: '', opinionDate: '', opinionFee: '', customerName: '' }
+const reportDefaults = { refNo: '', reportDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), branchName: '', caseType: 'LAP', valuerName: 'Er. V. Ramesh Babu B.E.,(Civil)', contactedPerson: '', applicantName: '', ownerName: '', propertyType: 'Residential', currentUsage: 'Residential', siteAddress: '', documentAddress: '', landmark: '', distanceFromBranch: '', occupancy: 'Occupied', relationship: 'Applicant', identifiedThrough: 'Document boundaries', plotArea: '', floors: '', rooms: '', carpetArea: '', builtUpArea: '', propertyAge: '', residualLife: '', documentsVerified: '', totalValue: '', northBoundary: '', southBoundary: '', eastBoundary: '', westBoundary: '', boundariesMatching: 'Yes', negativeArea: 'No', latitude: '', longitude: '', observation: '', remarks: '' }
+
+const emptyLeadForm = { customer: '', customerPhone: '', bankCode: 'UJJ', branch: '', location: '', loanType: 'LAP', bankRefNo: '', receivedDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), priority: 'Normal', notes: '', employeeId: '' }
+
+const STATUS_COLOR = { NEW: 'badge-blue', ASSIGNED: 'badge-amber', VISIT_STARTED: 'badge-amber', VISITED_SITE: 'badge-purple', DETAILS_UPDATED: 'badge-purple', SUBMITTED_FOR_VERIFICATION: 'badge-blue', VERIFIED: 'badge-green', REVISION_REQUIRED: 'badge-red', COMPLETED: 'badge-green' }
+
+function Icon({ id }) {
+  const map = {
+    overview: <LayoutDashboard size={18} color="#2563eb" />,
+    leads: <FolderPlus size={18} color="#059669" />,
+    task: <PlusCircle size={18} color="#d97706" />,
+    tasks: <ListChecks size={18} color="#9333ea" />,
+    verify: <CheckCircle2 size={18} color="#0891b2" />,
+    report: <BarChart3 size={18} color="#4f46e5" />,
+    billing: <Receipt size={18} color="#c026d3" />,
+    employees: <Users size={18} color="#ea580c" />,
+    banks: <Building2 size={18} color="#2563eb" />,
+  }
+  return map[id] || null
+}
+
+function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, users, loading, onRefresh, onCreateLead, onUpdateLead, onDeleteLead, onExportLeads, onCreateBankTemplate, onUpdateBankTemplate, onDeleteBankTemplate, onCreateEmployee, onDeleteEmployee, onCreateTask, onAssignLead, onDeleteJob, onVerifyJob, onGenerateReport, onGenerateBilling }) {
+  const stats = dashboardData?.stats || []
+  const fieldUsers = users.filter((u) => u.role === 'field')
+
+  const [activeSection, setActiveSection] = useState('overview')
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [message, setMessage] = useState(null)
+  const [leadForm, setLeadForm] = useState(emptyLeadForm)
+  const [editingLeadId, setEditingLeadId] = useState('')
+  const [showLeadModal, setShowLeadModal] = useState(false)
+  const [leadSearchQuery, setLeadSearchQuery] = useState('')
+  const [bankFilter, setBankFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [selectedLeadForTask, setSelectedLeadForTask] = useState('')
+  const [taskForm, setTaskForm] = useState({ customer: '', customerPhone: '', bankCode: 'UJJ', branch: '', location: '', loanType: '', dueDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), notes: '', employeeId: '' })
+  const [reportForm, setReportForm] = useState(reportDefaults)
+  const [selectedJobId, setSelectedJobId] = useState('')
+  const [billingForm, setBillingForm] = useState(billingDefaults)
+  const [billingRows, setBillingRows] = useState([{ ...emptyBillingRow }])
+  const [billingPeriod, setBillingPeriod] = useState('all')
+  const [billingViewMode, setBillingViewMode] = useState('generate')
+  const [billingSummary, setBillingSummary] = useState(null)
+  const [employeeForm, setEmployeeForm] = useState({ name: '', email: '', username: '', password: '', phone: '' })
+  const [showEmpPassword, setShowEmpPassword] = useState(false)
+  const [bankForm, setBankForm] = useState({ name: '', code: '', branchName: '', address: '' })
+  const [editingBankId, setEditingBankId] = useState('')
+  const [assignments, setAssignments] = useState({})
+  const [verifyRemarks, setVerifyRemarks] = useState({})
+  const [viewingBillJob, setViewingBillJob] = useState(null)
+  const [isEditingModal, setIsEditingModal] = useState(false)
+  const [editBillForm, setEditBillForm] = useState({})
+
+  // Section Filter States
+  const [taskSearchQuery, setTaskSearchQuery] = useState('')
+  const [taskBankFilter, setTaskBankFilter] = useState('ALL')
+  const [taskStatusFilter, setTaskStatusFilter] = useState('ALL')
+  const [taskEmployeeFilter, setTaskEmployeeFilter] = useState('ALL')
+
+  const [verifySearchQuery, setVerifySearchQuery] = useState('')
+  const [verifyStatusFilter, setVerifyStatusFilter] = useState('ALL')
+
+  const [billingSearchQuery, setBillingSearchQuery] = useState('')
+  const [billingBankFilter, setBillingBankFilter] = useState('ALL')
+  const [billingStatusFilter, setBillingStatusFilter] = useState('ALL')
+
+  const filteredTasks = useMemo(() => {
+    return jobs.filter((job) => {
+      if (taskBankFilter !== 'ALL' && (job.bankCode || '').toUpperCase() !== taskBankFilter.toUpperCase()) return false
+      if (taskStatusFilter !== 'ALL' && job.status !== taskStatusFilter) return false
+      if (taskEmployeeFilter !== 'ALL' && job.assignedEmployee !== taskEmployeeFilter && job.assignedTo !== taskEmployeeFilter) return false
+      if (taskSearchQuery.trim()) {
+        const q = taskSearchQuery.toLowerCase()
+        return (
+          (job.customer || '').toLowerCase().includes(q) ||
+          (job.bank || '').toLowerCase().includes(q) ||
+          (job.assignedEmployee || '').toLowerCase().includes(q) ||
+          (job.location || '').toLowerCase().includes(q) ||
+          (job.id || '').toLowerCase().includes(q)
+        )
+      }
+      return true
+    })
+  }, [jobs, taskBankFilter, taskStatusFilter, taskEmployeeFilter, taskSearchQuery])
+
+  const filteredVerifyJobs = useMemo(() => {
+    return jobs.filter((job) => {
+      const isPending = ['SUBMITTED_FOR_VERIFICATION', 'REVISION_REQUIRED', 'VERIFIED'].includes(job.status)
+      if (!isPending) return false
+      if (verifyStatusFilter !== 'ALL' && job.status !== verifyStatusFilter) return false
+      if (verifySearchQuery.trim()) {
+        const q = verifySearchQuery.toLowerCase()
+        return (
+          (job.customer || '').toLowerCase().includes(q) ||
+          (job.bank || '').toLowerCase().includes(q) ||
+          (job.assignedEmployee || '').toLowerCase().includes(q) ||
+          (job.location || '').toLowerCase().includes(q)
+        )
+      }
+      return true
+    })
+  }, [jobs, verifyStatusFilter, verifySearchQuery])
+
+  const filteredBillingJobs = useMemo(() => {
+    return jobs.filter((job) => {
+      const b = job.vendorBillDetails || {}
+      const isSubmitted = b.submitted || job.status === 'SUBMITTED_FOR_VERIFICATION' || job.status === 'VERIFIED'
+      if (billingBankFilter !== 'ALL' && (job.bankCode || '').toUpperCase() !== billingBankFilter.toUpperCase()) return false
+      if (billingStatusFilter === 'SUBMITTED' && !isSubmitted) return false
+      if (billingStatusFilter === 'PENDING' && isSubmitted) return false
+      if (billingSearchQuery.trim()) {
+        const q = billingSearchQuery.toLowerCase()
+        return (
+          (job.customer || '').toLowerCase().includes(q) ||
+          (job.bank || '').toLowerCase().includes(q) ||
+          (job.assignedEmployee || '').toLowerCase().includes(q) ||
+          (b.jobCardNo || '').toLowerCase().includes(q) ||
+          (b.customerId || '').toLowerCase().includes(q)
+        )
+      }
+      return true
+    })
+  }, [jobs, billingBankFilter, billingStatusFilter, billingSearchQuery])
+
+  useEffect(() => {
+    if (viewingBillJob) {
+      const b = viewingBillJob.vendorBillDetails || {}
+      setEditBillForm({
+        customerId: b.customerId || viewingBillJob.customerAppNo || viewingBillJob.id || '',
+        opinionDate: b.opinionDate || (viewingBillJob.visitedAt ? new Date(viewingBillJob.visitedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+        opinionFee: b.opinionFee !== undefined ? b.opinionFee : 1500,
+        additionalFee: b.additionalFee || 0,
+        jobCardPrefix: b.jobCardPrefix || 'K',
+        jobCardNo: b.jobCardNo || '',
+        remarks: b.remarks || '',
+      })
+      setIsEditingModal(false)
+    }
+  }, [viewingBillJob])
+
+  const selectedJob = useMemo(() => jobs.find((j) => j.id === selectedJobId) || null, [jobs, selectedJobId])
+
+  useEffect(() => {
+    if (activeSection === 'billing') {
+      getBillingSummary(billingPeriod).then(setBillingSummary).catch(console.error)
+
+      // Auto pre-fill submitted vendor bills from field employees
+      const submittedJobs = jobs.filter((j) => j.vendorBillDetails?.submitted)
+      if (submittedJobs.length > 0) {
+        const newRows = submittedJobs.map((j) => ({
+          branch: j.branch || 'Branch',
+          customerId: j.vendorBillDetails?.customerId || j.id,
+          customerName: j.customer,
+          applicantName: j.customer,
+          opinionDate: j.vendorBillDetails?.opinionDate || new Date().toISOString().split('T')[0],
+          initiationDate: j.vendorBillDetails?.opinionDate || new Date().toISOString().split('T')[0],
+          opinionFee: j.vendorBillDetails?.opinionFee || 1500,
+          additionalFee: j.vendorBillDetails?.additionalFee || 0,
+          totalAmount: j.vendorBillDetails?.totalAmount || 1500,
+          amount: j.vendorBillDetails?.totalAmount || 1500,
+          jobCardPrefix: j.vendorBillDetails?.jobCardPrefix || 'K',
+          jobCardNo: j.vendorBillDetails?.jobCardNo || '',
+          propertyLocation: j.location || '',
+          distanceFromBranch: j.visitDetails?.distanceFromBranch || '0',
+          stage: j.status || 'Fresh',
+        }))
+        setBillingRows(newRows)
+      }
+    }
+  }, [activeSection, billingPeriod, jobs])
+
+  const showMsg = (text, type = 'success') => {
+    setMessage({ text, type })
+    setTimeout(() => setMessage(null), 5000)
+  }
+
+  const filteredLeads = useMemo(() => leads.filter((lead) => {
+    if (bankFilter !== 'ALL' && (lead.bankCode || '').toUpperCase() !== bankFilter) return false
+    if (statusFilter !== 'ALL' && (lead.status || 'NEW').toUpperCase() !== statusFilter) return false
+    if (leadSearchQuery.trim()) {
+      const q = leadSearchQuery.toLowerCase()
+      return (lead.customer || '').toLowerCase().includes(q) || (lead.customerPhone || '').includes(q) || (lead.bankRefNo || '').toLowerCase().includes(q) || (lead.branch || '').toLowerCase().includes(q) || (lead.location || '').toLowerCase().includes(q)
+    }
+    return true
+  }), [leads, bankFilter, statusFilter, leadSearchQuery])
+
+  /* ─── Handlers ─── */
+  const handleLeadSubmit = async (e) => {
+    e.preventDefault()
+    if (!leadForm.customer.trim()) return showMsg('Customer name is required', 'error')
+    try {
+      if (editingLeadId) { await onUpdateLead(editingLeadId, leadForm); showMsg('Lead updated') }
+      else { await onCreateLead(leadForm); showMsg('Lead noted and saved') }
+      setEditingLeadId(''); setLeadForm(emptyLeadForm); setShowLeadModal(false)
+    } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const handleEditLead = (lead) => {
+    const leadId = lead.id || lead._id
+    setEditingLeadId(leadId)
+    setLeadForm({ customer: lead.customer || '', customerPhone: lead.customerPhone || '', bankCode: lead.bankCode || 'UJJ', branch: lead.branch || '', location: lead.location || '', loanType: lead.loanType || 'LAP', bankRefNo: lead.bankRefNo || '', receivedDate: lead.receivedDate || '', priority: lead.priority || 'Normal', notes: lead.notes || '', employeeId: lead.assignedTo || '' })
+    setShowLeadModal(true)
+    setActiveSection('leads')
+  }
+
+  const handleDeleteLead = async (leadId) => {
+    if (!window.confirm('Delete this lead?')) return
+    try { await onDeleteLead(leadId); showMsg('Lead deleted') } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const handleExport = async (bankCode) => {
+    try { await onExportLeads({ bankCode }); showMsg('Excel report downloaded') } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const handleBankSubmit = async (e) => {
+    e.preventDefault()
+    const payload = { ...bankForm, name: bankForm.name.trim(), code: bankForm.code.trim().toUpperCase() }
+    if (!payload.name || !payload.code) return showMsg('Bank name and code are required', 'error')
+    try {
+      if (editingBankId) { await onUpdateBankTemplate(editingBankId, payload); showMsg('Bank updated'); setEditingBankId('') }
+      else { await onCreateBankTemplate(payload); showMsg('Bank added') }
+      setBankForm({ name: '', code: '', branchName: '', address: '' })
+    } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const handleDeleteEmployee = async (userId, name) => {
+    if (!window.confirm(`Delete employee "${name}"? Their tasks will remain but will be unassigned.`)) return
+    try { await onDeleteEmployee(userId); showMsg('Employee deleted') } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const handleEmployeeSubmit = async (e) => {
+    e.preventDefault()
+    try { await onCreateEmployee(employeeForm); setEmployeeForm({ name: '', email: '', username: '', password: '', phone: '' }); showMsg('Employee added successfully') } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const selectLeadForTask = (leadId) => {
+    setSelectedLeadForTask(leadId)
+    const lead = leads.find((l) => (l.id || l._id) === leadId)
+    if (!lead) return
+    setTaskForm((prev) => ({ ...prev, customer: lead.customer || '', customerPhone: lead.customerPhone || '', bankCode: lead.bankCode || 'UJJ', branch: lead.branch || '', location: lead.location || '', loanType: lead.loanType || '', notes: lead.bankRefNo ? `Bank Ref: ${lead.bankRefNo}` : '', employeeId: lead.assignedTo || fieldUsers[0]?.id || '' }))
+    setActiveSection('task')
+  }
+
+  const handleTaskSubmit = async (e) => {
+    e.preventDefault()
+    try { await onCreateTask({ ...taskForm, employeeId: taskForm.employeeId || fieldUsers[0]?.id }); setTaskForm({ customer: '', customerPhone: '', bankCode: 'UJJ', branch: '', location: '', loanType: '', dueDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), notes: '', employeeId: '' }); setSelectedLeadForTask(''); showMsg('Task created and assigned to employee') } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const handleAssign = async (leadId) => {
+    const empId = assignments[leadId] || fieldUsers[0]?.id
+    const lead = leads.find((l) => l.id === leadId)
+    if (!empId) return showMsg('Select an employee first', 'error')
+    try { await onAssignLead(leadId, empId, lead?.bankCode || 'UJJ'); showMsg('Lead assigned') } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const handleVerify = async (jobId, approved) => {
+    const remarks = verifyRemarks[jobId] || (approved ? 'Verified by admin' : 'Needs correction')
+    try { await onVerifyJob(jobId, { approved, remarks }); showMsg(approved ? 'Work verified ✓' : 'Sent back for correction') } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const handleGenerateReport = async (e) => {
+    e.preventDefault()
+    if (!selectedJob) return showMsg('Select a task/job first from Tasks panel', 'error')
+    try {
+      await onGenerateReport(selectedJob.id, { ...reportForm, applicantName: reportForm.applicantName || selectedJob.customer, branchName: reportForm.branchName || selectedJob.branch, sitePhotos: selectedJob.sitePhotos || [] })
+      showMsg('Technical report generated and opened for download')
+    } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const handleBillingSubmit = async (e) => {
+    e.preventDefault()
+    try { await onGenerateBilling({ ...billingForm, cases: billingRows }); showMsg('Vendor bill Excel generated and downloaded') } catch (err) { showMsg(err.message, 'error') }
+  }
+
+  const fillFromJob = (job) => {
+    const v = job.visitDetails || {}
+    setReportForm((prev) => ({ ...prev, ...v, branchName: job.branch || prev.branchName, applicantName: job.customer || prev.applicantName, ownerName: v.ownerName || job.customer || prev.ownerName, siteAddress: v.siteAddress || job.location || prev.siteAddress, caseRefNo: job.id }))
+    setSelectedJobId(job.id)
+    setActiveSection('report')
+  }
+
+  const navItems = [
+    { id: 'overview', label: 'Dashboard', icon: 'overview' },
+    { id: 'leads', label: 'Bank Leads', icon: 'leads', badge: leads.filter((l) => l.status === 'NEW').length || null },
+    { id: 'task', label: 'Add Task', icon: 'task' },
+    { id: 'tasks', label: 'All Tasks', icon: 'tasks', badge: jobs.filter((j) => j.status === 'SUBMITTED_FOR_VERIFICATION').length || null },
+    { id: 'verify', label: 'Verify Work', icon: 'verify', badge: jobs.filter((j) => j.status === 'SUBMITTED_FOR_VERIFICATION').length || null },
+    { id: 'report', label: 'Reports', icon: 'report' },
+    { id: 'billing', label: 'Vendor Billing', icon: 'billing' },
+    { id: 'employees', label: 'Employees', icon: 'employees' },
+    { id: 'banks', label: 'Banks', icon: 'banks' },
+  ]
+
+  const UJJ_BILL_FIELDS = [
+    ['branch', 'Branch'], ['customerId', 'Customer ID'], ['customerName', 'Customer Name'],
+    ['opinionDate', 'Date of Opinion'], ['opinionFee', 'Opinion Fee (Rs.)'],
+    ['additionalFee', 'Additional Fee'], ['totalAmount', 'Total Amount'],
+    ['jobCardPrefix', 'Job Card Prefix'], ['jobCardNo', 'Job Card No.'],
+  ]
+  const NIVARA_BILL_FIELDS = [
+    ['branch', 'Branch'], ['applicantName', 'Applicant Name'], ['initiationDate', 'Date of Initiation'],
+    ['propertyLocation', 'Property Location'], ['distanceFromBranch', 'Distance (km)'],
+    ['stage', 'Stage (Fresh/2nd)'], ['amount', 'Amount (Rs.)'],
+    ['jobCardPrefix', 'Job Card Prefix'], ['jobCardNo', 'Job Card No.'],
+  ]
+  const billFields = billingForm.bankCode === 'UJJ' ? UJJ_BILL_FIELDS : NIVARA_BILL_FIELDS
+
+  const REPORT_FIELDS = [
+    { section: 'Header Information', fields: [
+      ['refNo', 'Reference Number'], ['reportDate', 'Report Date'], ['branchName', 'Branch Name'],
+      ['caseType', 'Case Type (LAP/HL)'], ['valuerName', 'Valuer Name'], ['contactedPerson', 'Contacted Person & Mobile'],
+    ]},
+    { section: 'Applicant & Property', fields: [
+      ['applicantName', 'Applicant Name'], ['ownerName', 'Owner Name'],
+      ['propertyType', 'Property Type'], ['currentUsage', 'Current Usage'],
+      ['siteAddress', 'Address as at Site'], ['documentAddress', 'Address as per Document'],
+      ['landmark', 'Landmark'], ['distanceFromBranch', 'Distance from Branch (km)'],
+    ]},
+    { section: 'Occupancy & Identification', fields: [
+      ['occupancy', 'Occupancy'], ['relationship', 'Relationship with Applicant'],
+      ['identifiedThrough', 'Property Identified Through'],
+    ]},
+    { section: 'Area & Construction Details', fields: [
+      ['plotArea', 'Plot / Land Area / UDS (sq ft)'], ['floors', 'Number of Floors'],
+      ['rooms', 'Number of Rooms'], ['carpetArea', 'Carpet Area (sq ft)'],
+      ['builtUpArea', 'Built-up Area (sq ft)'], ['propertyAge', 'Age of Property (years)'],
+      ['residualLife', 'Residual Life (years)'], ['documentsVerified', 'Documents Verified'],
+    ]},
+    { section: 'Valuation', fields: [['totalValue', 'Total Valuation Amount (Rs.)']] },
+    { section: 'Boundaries', fields: [
+      ['northBoundary', 'North Boundary'], ['southBoundary', 'South Boundary'],
+      ['eastBoundary', 'East Boundary'], ['westBoundary', 'West Boundary'],
+      ['boundariesMatching', 'Boundaries Matching'], ['negativeArea', 'Negative Area'],
+    ]},
+    { section: 'Location & Observations', fields: [
+      ['latitude', 'Latitude'], ['longitude', 'Longitude'],
+      ['observation', 'Observation'], ['remarks', 'Additional Remarks'],
+    ]},
+  ]
+
+  return (
+    <div className={`admin-layout ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+      {/* ─── Sidebar ─── */}
+      <aside className={`admin-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarCollapsed ? 'center' : 'space-between', padding: isSidebarCollapsed ? '4px 0 10px' : '6px 12px 8px' }}>
+          {!isSidebarCollapsed && <div className="sidebar-section-label" style={{ padding: 0 }}>Main Menu</div>}
+          <button
+            type="button"
+            className="secondary-btn"
+            style={{ padding: 6, borderRadius: '50%', width: 28, height: 28, display: 'grid', placeItems: 'center', minWidth: 28 }}
+            onClick={() => setIsSidebarCollapsed((v) => !v)}
+            title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          >
+            {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+        </div>
+
+        {navItems.map(({ id, label, icon, badge }) => (
+          <button
+            key={id}
+            type="button"
+            className={`sidebar-nav-btn ${activeSection === id ? 'active-nav' : ''}`}
+            onClick={() => setActiveSection(id)}
+            title={isSidebarCollapsed ? label : ''}
+          >
+            <span className="nav-icon"><Icon id={icon} /></span>
+            {!isSidebarCollapsed && <span>{label}</span>}
+            {!isSidebarCollapsed && badge ? <span className="nav-badge">{badge}</span> : null}
+            {isSidebarCollapsed && badge ? <span className="nav-badge-dot" title={`${badge} ${label}`} /> : null}
+          </button>
+        ))}
+      </aside>
+
+      {/* ─── Main Content ─── */}
+      <main className="admin-main">
+        {message && (
+          <div className={`notice notice-${message.type}`} style={{ marginBottom: 20 }}>
+            {message.text}
+            <button type="button" className="notice-close" onClick={() => setMessage(null)}>×</button>
+          </div>
+        )}
+
+        {/* ══ OVERVIEW ══ */}
+        {activeSection === 'overview' && (
+          <div>
+            <div className="page-header">
+              <h2>Operations Dashboard</h2>
+              <p>Monitor all bank leads, field tasks, verifications and billing activity</p>
+            </div>
+
+            <div className="stats-grid">
+              {[
+                { label: 'Total Leads', value: leads.length, color: 'blue', icon: '📋' },
+                { label: 'Active Tasks', value: jobs.filter((j) => !['VERIFIED','COMPLETED'].includes(j.status)).length, color: 'amber', icon: '🚗' },
+                { label: 'Pending Verification', value: jobs.filter((j) => j.status === 'SUBMITTED_FOR_VERIFICATION').length, color: 'purple', icon: '🔍' },
+                { label: 'Verified / Completed', value: jobs.filter((j) => ['VERIFIED','COMPLETED'].includes(j.status)).length, color: 'green', icon: '✅' },
+                { label: 'Field Executives', value: fieldUsers.length, color: 'blue', icon: '👷' },
+              ].map(({ label, value, color, icon }) => (
+                <div key={label} className={`stat-card ${color}`}>
+                  <div className="stat-top">
+                    <div className="stat-label">{label}</div>
+                    <div className={`stat-icon ${color}`}>{icon}</div>
+                  </div>
+                  <span className="stat-value">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {/* Recent Leads */}
+              <div className="table-container">
+                <div className="table-toolbar">
+                  <strong style={{ fontWeight: 700 }}>Recent Leads</strong>
+                  <button type="button" className="secondary-btn" onClick={() => setActiveSection('leads')} style={{ marginLeft: 'auto' }}>View All</button>
+                </div>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr><th>Customer</th><th>Bank</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                      {leads.slice(0, 6).map((lead) => (
+                        <tr key={lead.id || lead._id}>
+                          <td><div className="td-primary">{lead.customer}</div><div className="td-secondary">{lead.branch}</div></td>
+                          <td>{lead.bankCode}</td>
+                          <td><span className={`badge ${STATUS_COLOR[lead.status] || 'badge-gray'}`}>{lead.status || 'NEW'}</span></td>
+                        </tr>
+                      ))}
+                      {leads.length === 0 && <tr><td colSpan={3}><div className="table-empty"><div className="table-empty-icon">📋</div><p>No leads yet</p></div></td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Recent Tasks */}
+              <div className="table-container">
+                <div className="table-toolbar">
+                  <strong style={{ fontWeight: 700 }}>Recent Tasks</strong>
+                  <button type="button" className="secondary-btn" onClick={() => setActiveSection('tasks')} style={{ marginLeft: 'auto' }}>View All</button>
+                </div>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr><th>Customer</th><th>Executive</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                      {jobs.slice(0, 6).map((job) => (
+                        <tr key={job.id}>
+                          <td><div className="td-primary">{job.customer}</div><div className="td-secondary">{job.bank}</div></td>
+                          <td>{job.assignedEmployee || '-'}</td>
+                          <td><span className={`badge ${STATUS_COLOR[job.status] || 'badge-gray'}`}>{job.status?.replace(/_/g, ' ')}</span></td>
+                        </tr>
+                      ))}
+                      {jobs.length === 0 && <tr><td colSpan={3}><div className="table-empty"><div className="table-empty-icon">✅</div><p>No tasks yet</p></div></td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ BANK LEADS ══ */}
+        {activeSection === 'leads' && (
+          <div>
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <h2>Bank Leads Management</h2>
+                <p>Record incoming leads from Ujjivan, Nivara, and other banks</p>
+              </div>
+              <div className="inline-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  onClick={() => { setEditingLeadId(''); setLeadForm(emptyLeadForm); setShowLeadModal(true) }}
+                >
+                  <Plus size={18} /> + Add New Lead
+                </button>
+                <button type="button" className="secondary-btn" onClick={() => handleExport('UJJ')}>Export Ujjivan Excel</button>
+                <button type="button" className="secondary-btn" onClick={() => handleExport('NIVARA')}>Export Nivara Excel</button>
+                <button type="button" className="btn btn-primary" onClick={() => handleExport('ALL')}>Master Report (All)</button>
+              </div>
+            </div>
+
+            {/* Modal Popup for Add / Edit Lead */}
+            {showLeadModal && (
+              <div className="photo-lightbox" onClick={() => setShowLeadModal(false)}>
+                <div
+                  className="card"
+                  style={{ width: '100%', maxWidth: 650, margin: 20, maxHeight: '90vh', overflowY: 'auto', borderRadius: 16, boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="card-header" style={{ background: 'var(--brand-50)', padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--brand-600)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800 }}>
+                        <FolderPlus size={20} />
+                      </div>
+                      <h3 style={{ margin: 0, color: 'var(--brand-900)', fontSize: '1.1rem', fontWeight: 800 }}>
+                        {editingLeadId ? '✏️ Edit Lead Details' : '➕ Create New Bank Lead'}
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      style={{ background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'grid', placeItems: 'center', fontSize: '1.2rem', fontWeight: 800, color: 'var(--gray-700)', cursor: 'pointer' }}
+                      onClick={() => setShowLeadModal(false)}
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  <div className="card-body" style={{ padding: 22 }}>
+                    <form onSubmit={handleLeadSubmit}>
+                      <div className="form-row" style={{ marginBottom: 14 }}>
+                        <div className="form-field">
+                          <label className="form-label">Bank <span className="required">*</span></label>
+                          <select className="form-select" value={leadForm.bankCode} onChange={(e) => setLeadForm((p) => ({ ...p, bankCode: e.target.value }))}>
+                            <option value="UJJ">Ujjivan Small Finance Bank</option>
+                            <option value="NIVARA">Nivara Home Finance Limited</option>
+                            {bankTemplates.filter((t) => !['UJJ','NIVARA'].includes(t.code)).map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Customer Name <span className="required">*</span></label>
+                          <input className="form-input" value={leadForm.customer} onChange={(e) => setLeadForm((p) => ({ ...p, customer: e.target.value }))} placeholder="Full name" required />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Customer Phone</label>
+                          <input className="form-input" value={leadForm.customerPhone} onChange={(e) => setLeadForm((p) => ({ ...p, customerPhone: e.target.value }))} placeholder="Mobile number" />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Branch</label>
+                          <input className="form-input" value={leadForm.branch} onChange={(e) => setLeadForm((p) => ({ ...p, branch: e.target.value }))} placeholder="Bank branch" />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Property Location</label>
+                          <input className="form-input" value={leadForm.location} onChange={(e) => setLeadForm((p) => ({ ...p, location: e.target.value }))} placeholder="Property address" />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Loan / Case Type</label>
+                          <select className="form-select" value={leadForm.loanType} onChange={(e) => setLeadForm((p) => ({ ...p, loanType: e.target.value }))}>
+                            <option value="LAP">LAP</option><option value="HL">Home Loan</option>
+                            <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
+                          </select>
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Bank Ref / App No.</label>
+                          <input className="form-input" value={leadForm.bankRefNo} onChange={(e) => setLeadForm((p) => ({ ...p, bankRefNo: e.target.value }))} placeholder="Reference number" />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Received Date</label>
+                          <input className="form-input" value={leadForm.receivedDate} onChange={(e) => setLeadForm((p) => ({ ...p, receivedDate: e.target.value }))} placeholder="dd.mm.yyyy" />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Priority</label>
+                          <select className="form-select" value={leadForm.priority} onChange={(e) => setLeadForm((p) => ({ ...p, priority: e.target.value }))}>
+                            <option value="Normal">Normal</option><option value="Urgent">Urgent</option><option value="High">High</option>
+                          </select>
+                        </div>
+                        <div className="form-field full-width">
+                          <label className="form-label">Notes / Remarks</label>
+                          <input className="form-input" value={leadForm.notes} onChange={(e) => setLeadForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Any additional notes..." />
+                        </div>
+                      </div>
+                      <div className="btn-group" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+                        <button type="button" className="btn btn-secondary" onClick={() => setShowLeadModal(false)}>Cancel</button>
+                        <button type="submit" className="btn btn-primary">{editingLeadId ? 'Update Lead' : '💾 Save Lead'}</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Leads Table */}
+            <div className="table-container">
+              <div className="table-toolbar">
+                <input className="table-search" placeholder="Search by customer, phone, ref, branch..." value={leadSearchQuery} onChange={(e) => setLeadSearchQuery(e.target.value)} />
+                <select className="table-filter" value={bankFilter} onChange={(e) => setBankFilter(e.target.value)}>
+                  <option value="ALL">All Banks</option><option value="UJJ">Ujjivan</option><option value="NIVARA">Nivara</option>
+                </select>
+                <select className="table-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                  <option value="ALL">All Status</option><option value="NEW">New</option><option value="ASSIGNED">Assigned</option>
+                </select>
+                <span style={{ fontSize: '0.82rem', color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{filteredLeads.length} leads</span>
+              </div>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Ref / Date</th><th>Bank / Branch</th><th>Customer</th><th>Phone</th>
+                      <th>Location</th><th>Type / Priority</th><th>Executive</th><th>Status</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLeads.length === 0 ? (
+                      <tr><td colSpan={9}><div className="table-empty"><div className="table-empty-icon">📋</div><p>No leads match your search</p></div></td></tr>
+                    ) : filteredLeads.map((lead) => {
+                      const leadId = lead.id || lead._id
+                      return (
+                        <tr key={leadId}>
+                          <td><div className="td-primary">{lead.bankRefNo || '—'}</div><div className="td-secondary">{lead.receivedDate}</div></td>
+                          <td><div className="td-primary">{lead.bankCode}</div><div className="td-secondary">{lead.branch}</div></td>
+                          <td><div className="td-primary">{lead.customer}</div></td>
+                          <td>{lead.customerPhone || '—'}</td>
+                          <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.location || '—'}</td>
+                          <td>
+                            <div>{lead.loanType}</div>
+                            <span className={`badge ${lead.priority === 'Urgent' ? 'badge-red' : 'badge-gray'}`} style={{ fontSize: '0.7rem' }}>{lead.priority}</span>
+                          </td>
+                          <td>{lead.assignedEmployee || <span style={{ color: 'var(--gray-400)' }}>Unassigned</span>}</td>
+                          <td><span className={`badge ${STATUS_COLOR[lead.status] || 'badge-gray'}`}>{lead.status || 'NEW'}</span></td>
+                          <td>
+                            <div className="inline-actions">
+                              <button type="button" className="secondary-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={() => selectLeadForTask(leadId)}>+ Task</button>
+                              <button type="button" className="secondary-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={() => handleEditLead(lead)}>Edit</button>
+                              <button type="button" className="secondary-btn danger-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={() => handleDeleteLead(leadId)}>Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ ADD TASK ══ */}
+        {activeSection === 'task' && (
+          <div>
+            <div className="page-header">
+              <h2>Create & Assign Task</h2>
+              <p>Assign a property visit task to a field executive</p>
+            </div>
+            <div className="card">
+              <div className="card-header">
+                <h3>New Task Details</h3>
+                {selectedLeadForTask && <span className="badge badge-blue">From Lead: {leads.find((l) => (l.id || l._id) === selectedLeadForTask)?.customer}</span>}
+              </div>
+              <div className="card-body">
+                {/* Quick Select from Leads */}
+                <div style={{ marginBottom: 18 }}>
+                  <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>Quick fill from existing lead</label>
+                  <select className="form-select" style={{ maxWidth: 400 }} value={selectedLeadForTask} onChange={(e) => selectLeadForTask(e.target.value)}>
+                    <option value="">— Select a lead to auto-fill —</option>
+                    {leads.map((lead) => {
+                      const lid = lead.id || lead._id
+                      return <option key={lid} value={lid}>{lead.customer} — {lead.bankCode} — {lead.branch}</option>
+                    })}
+                  </select>
+                </div>
+
+                <form onSubmit={handleTaskSubmit}>
+                  <div className="form-row" style={{ marginBottom: 14 }}>
+                    <div className="form-field">
+                      <label className="form-label">Bank</label>
+                      <select className="form-select" value={taskForm.bankCode} onChange={(e) => setTaskForm((p) => ({ ...p, bankCode: e.target.value }))}>
+                        <option value="UJJ">Ujjivan Small Finance Bank</option>
+                        <option value="NIVARA">Nivara Home Finance Limited</option>
+                      </select>
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Customer Name <span className="required">*</span></label>
+                      <input className="form-input" value={taskForm.customer} onChange={(e) => setTaskForm((p) => ({ ...p, customer: e.target.value }))} placeholder="Customer full name" required />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Customer Phone</label>
+                      <input className="form-input" value={taskForm.customerPhone} onChange={(e) => setTaskForm((p) => ({ ...p, customerPhone: e.target.value }))} placeholder="Mobile number" />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Branch</label>
+                      <input className="form-input" value={taskForm.branch} onChange={(e) => setTaskForm((p) => ({ ...p, branch: e.target.value }))} placeholder="Bank branch" />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Property Location</label>
+                      <input className="form-input" value={taskForm.location} onChange={(e) => setTaskForm((p) => ({ ...p, location: e.target.value }))} placeholder="Property address" />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Loan / Case Type</label>
+                      <select className="form-select" value={taskForm.loanType} onChange={(e) => setTaskForm((p) => ({ ...p, loanType: e.target.value }))}>
+                        <option value="LAP">LAP</option><option value="HL">Home Loan</option>
+                        <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
+                      </select>
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Due Date</label>
+                      <input className="form-input" value={taskForm.dueDate} onChange={(e) => setTaskForm((p) => ({ ...p, dueDate: e.target.value }))} placeholder="dd.mm.yyyy" />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Assign To Field Executive <span className="required">*</span></label>
+                      <select className="form-select" value={taskForm.employeeId} onChange={(e) => setTaskForm((p) => ({ ...p, employeeId: e.target.value }))}>
+                        <option value="">— Select Executive —</option>
+                        {fieldUsers.map((emp) => <option key={emp.id || emp._id} value={emp.id || emp._id}>{emp.name} ({emp.email})</option>)}
+                      </select>
+                    </div>
+                    <div className="form-field full-width">
+                      <label className="form-label">Task Notes / Instructions</label>
+                      <textarea className="form-textarea" value={taskForm.notes} onChange={(e) => setTaskForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Special instructions, bank reference, remarks..." rows={3} />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary btn-lg">Create & Assign Task →</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ ALL TASKS ══ */}
+        {activeSection === 'tasks' && (
+          <div>
+            <div className="page-header">
+              <h2>All Assigned Tasks</h2>
+              <p>Monitor all field executive tasks and site visit progress</p>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="table-toolbar" style={{ marginBottom: 16, background: '#fff', padding: 14, borderRadius: 14, border: '1px solid var(--gray-200)' }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', width: '100%', alignItems: 'center' }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <input
+                    className="form-input"
+                    placeholder="🔍 Search customer, bank, executive, location..."
+                    value={taskSearchQuery}
+                    onChange={(e) => setTaskSearchQuery(e.target.value)}
+                  />
+                </div>
+                <select className="form-select" style={{ width: 'auto', minWidth: 130 }} value={taskBankFilter} onChange={(e) => setTaskBankFilter(e.target.value)}>
+                  <option value="ALL">All Banks</option>
+                  <option value="UJJ">Ujjivan</option>
+                  <option value="NIVARA">Nivara</option>
+                </select>
+                <select className="form-select" style={{ width: 'auto', minWidth: 160 }} value={taskStatusFilter} onChange={(e) => setTaskStatusFilter(e.target.value)}>
+                  <option value="ALL">All Status</option>
+                  <option value="ASSIGNED">Assigned</option>
+                  <option value="VISIT_STARTED">Visit Started</option>
+                  <option value="VISITED_SITE">Visited Site</option>
+                  <option value="SUBMITTED_FOR_VERIFICATION">Submitted Review</option>
+                  <option value="VERIFIED">Verified</option>
+                  <option value="REVISION_REQUIRED">Needs Correction</option>
+                </select>
+                <select className="form-select" style={{ width: 'auto', minWidth: 170 }} value={taskEmployeeFilter} onChange={(e) => setTaskEmployeeFilter(e.target.value)}>
+                  <option value="ALL">All Field Visitors</option>
+                  {fieldUsers.map((emp) => (
+                    <option key={emp.id || emp._id} value={emp.name}>{emp.name}</option>
+                  ))}
+                </select>
+                <span style={{ fontSize: '0.82rem', color: 'var(--gray-500)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {filteredTasks.length} tasks
+                </span>
+              </div>
+            </div>
+
+            <div className="jobs-grid">
+              {filteredTasks.length === 0 ? (
+                <div className="table-empty" style={{ gridColumn: '1/-1', background: '#fff', borderRadius: 16, padding: 40, border: '1px solid var(--gray-200)' }}>
+                  <div className="table-empty-icon">📋</div><p>No tasks match your search filters</p>
+                </div>
+              ) : filteredTasks.map((job) => (
+                <div key={job.id} className="job-card">
+                  <div className="job-card-header">
+                    <div>
+                      <div className="job-card-id">Task #{job.id?.slice(-8)}</div>
+                      <div className="job-card-customer">{job.customer}</div>
+                    </div>
+                    <span className={`badge ${STATUS_COLOR[job.status] || 'badge-gray'}`}>{job.status?.replace(/_/g, ' ')}</span>
+                  </div>
+                  <div className="job-card-bank">{job.bank} · {job.branch}</div>
+                  <div className="job-card-meta">
+                    <div className="job-meta-item"><strong>Executive:</strong> {job.assignedEmployee || '—'}</div>
+                    <div className="job-meta-item"><strong>Location:</strong> {job.location || '—'}</div>
+                    {job.statusNote && <div className="job-meta-item" style={{ gridColumn: '1/-1' }}><strong>Note:</strong> {job.statusNote}</div>}
+                    {job.sitePhotos?.length > 0 && <div className="job-meta-item" style={{ color: 'var(--green-600)', fontWeight: 600 }}>📷 {job.sitePhotos.length} photo(s)</div>}
+                  </div>
+                  <div className="job-card-actions">
+                    <button type="button" className="secondary-btn" onClick={() => fillFromJob(job)}>Use for Report</button>
+                    <button type="button" className="secondary-btn danger-btn" onClick={async () => { if (window.confirm('Delete this task?')) { await onDeleteJob(job.id); showMsg('Task deleted') } }}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ══ VERIFY ══ */}
+        {activeSection === 'verify' && (
+          <div>
+            <div className="page-header">
+              <h2>Verify Submitted Work</h2>
+              <p>Review field executive site visit details, photos, and verify completed work</p>
+            </div>
+
+            {/* Verify Work Filter Toolbar */}
+            <div className="table-toolbar" style={{ marginBottom: 16, background: '#fff', padding: 14, borderRadius: 14, border: '1px solid var(--gray-200)' }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', width: '100%', alignItems: 'center' }}>
+                <input
+                  className="form-input"
+                  style={{ flex: 1, minWidth: 200 }}
+                  placeholder="🔍 Search submitted work by customer, executive, site..."
+                  value={verifySearchQuery}
+                  onChange={(e) => setVerifySearchQuery(e.target.value)}
+                />
+                <select className="form-select" style={{ width: 'auto', minWidth: 180 }} value={verifyStatusFilter} onChange={(e) => setVerifyStatusFilter(e.target.value)}>
+                  <option value="ALL">All Submissions</option>
+                  <option value="SUBMITTED_FOR_VERIFICATION">Pending Review</option>
+                  <option value="REVISION_REQUIRED">Needs Correction</option>
+                  <option value="VERIFIED">Verified</option>
+                </select>
+                <span style={{ fontSize: '0.82rem', color: 'var(--gray-500)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {filteredVerifyJobs.length} submissions
+                </span>
+              </div>
+            </div>
+
+            {filteredVerifyJobs.length === 0 ? (
+              <div style={{ background: '#fff', padding: 60, textAlign: 'center', borderRadius: 16, border: '1px solid var(--gray-200)', color: 'var(--gray-400)' }}>
+                <div style={{ fontSize: '3rem', marginBottom: 12 }}>🔍</div>
+                <p>No submissions match your search filters</p>
+              </div>
+            ) : (
+              <div className="jobs-grid">
+                {filteredVerifyJobs.map((job) => (
+                  <div key={`verify-${job.id}`} className="job-card" style={{ borderTop: job.status === 'SUBMITTED_FOR_VERIFICATION' ? '3px solid var(--amber-500)' : job.status === 'VERIFIED' ? '3px solid var(--green-500)' : '3px solid var(--red-500)' }}>
+                    <div className="job-card-header">
+                      <div>
+                        <div className="job-card-id">#{job.id?.slice(-8)}</div>
+                        <div className="job-card-customer">{job.customer}</div>
+                      </div>
+                      <span className={`badge ${STATUS_COLOR[job.status] || 'badge-gray'}`}>{job.status?.replace(/_/g, ' ')}</span>
+                    </div>
+                    <div className="job-card-bank">{job.bank} · {job.branch}</div>
+
+                    <div style={{ fontSize: '0.86rem', color: 'var(--gray-600)', marginTop: 8 }}>
+                      <div><strong>Executive:</strong> {job.assignedEmployee}</div>
+                      <div><strong>Site:</strong> {job.visitDetails?.siteAddress || job.location || '—'}</div>
+                      <div><strong>Valuation:</strong> Rs. {job.visitDetails?.totalValue || '—'}</div>
+                      {job.visitDetails?.observation && <div><strong>Observation:</strong> {job.visitDetails.observation}</div>}
+                    </div>
+
+                    {job.sitePhotos?.length > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--gray-600)', marginBottom: 8 }}>Submitted Property Photos</div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {job.sitePhotos.map((photo, idx) => (
+                            <a key={idx} href={`http://localhost:3000${photo.url}`} target="_blank" rel="noopener noreferrer">
+                              <img src={`http://localhost:3000${photo.url}`} alt={photo.name} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, border: '2px solid var(--gray-200)' }} />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 12 }}>
+                      <input className="form-input" placeholder="Verification remarks (optional)..." value={verifyRemarks[job.id] || ''} onChange={(e) => setVerifyRemarks((p) => ({ ...p, [job.id]: e.target.value }))} style={{ marginBottom: 10 }} />
+                      <div className="btn-group">
+                        <button type="button" className="btn btn-success btn-sm" onClick={() => handleVerify(job.id, true)}>✓ Verify</button>
+                        <button type="button" className="btn btn-danger btn-sm" onClick={() => handleVerify(job.id, false)}>↩ Needs Correction</button>
+                        <button type="button" className="secondary-btn" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => fillFromJob(job)}>Use for Report</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ REPORT GENERATION ══ */}
+        {activeSection === 'report' && (
+          <div>
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <h2>Submitted Technical Reports ({jobs.filter((j) => j.status === 'SUBMITTED_FOR_VERIFICATION' || j.status === 'VERIFIED').length})</h2>
+                <p>View property inspection reports submitted by field executives and export in bank Excel/PDF format</p>
+              </div>
+            </div>
+
+            {/* Filter */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[['ALL', 'All Banks'], ['UJJ', 'Ujjivan SFB'], ['NIVARA', 'Nivara HF']].map(([code, label]) => (
+                  <button
+                    key={code}
+                    type="button"
+                    className={`task-tab ${bankFilter === code ? 'active' : ''}`}
+                    onClick={() => setBankFilter(code)}
+                    style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Submitted Reports Grid / Table */}
+            <div className="jobs-grid">
+              {jobs
+                .filter((j) => {
+                  const isSubmitted = j.status === 'SUBMITTED_FOR_VERIFICATION' || j.status === 'VERIFIED' || (j.sitePhotos && j.sitePhotos.length > 0)
+                  if (!isSubmitted) return false
+                  if (bankFilter !== 'ALL' && (j.bankCode || '').toUpperCase() !== bankFilter) return false
+                  return true
+                })
+                .length === 0 ? (
+                <div className="card" style={{ gridColumn: '1 / -1', padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>📊</div>
+                  <p style={{ fontWeight: 600 }}>No submitted property technical reports found</p>
+                  <p style={{ fontSize: '0.85rem', marginTop: 4 }}>When field employees submit property verification forms from their login, they will appear here ready for export.</p>
+                </div>
+              ) : (
+                jobs
+                  .filter((j) => {
+                    const isSubmitted = j.status === 'SUBMITTED_FOR_VERIFICATION' || j.status === 'VERIFIED' || (j.sitePhotos && j.sitePhotos.length > 0)
+                    if (!isSubmitted) return false
+                    if (bankFilter !== 'ALL' && (j.bankCode || '').toUpperCase() !== bankFilter) return false
+                    return true
+                  })
+                  .map((job) => {
+                    const photoCount = job.sitePhotos?.length || 0
+                    const totalVal = job.visitDetails?.totalPropertyValue || job.visitDetails?.presentMarketValue || job.visitDetails?.totalValue
+                    return (
+                      <div key={job.id} className="job-card" style={{ border: '1.5px solid var(--gray-200)' }}>
+                        <div className="job-card-header">
+                          <div>
+                            <div className="job-card-id">{job.bank || job.bankCode} · {job.branch || 'Branch'}</div>
+                            <div className="job-card-customer">{job.customer}</div>
+                          </div>
+                          <span className={`badge ${job.status === 'VERIFIED' ? 'badge-green' : 'badge-blue'}`}>
+                            {job.status?.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+
+                        <div className="job-card-meta" style={{ marginTop: 10, marginBottom: 14 }}>
+                          <div className="job-meta-item">Field Exec: <strong>{job.assignedEmployee || 'Assigned User'}</strong></div>
+                          <div className="job-meta-item">Visited: <strong>{job.visitedAt ? new Date(job.visitedAt).toLocaleDateString() : 'Yes'}</strong></div>
+                          <div className="job-meta-item">Valuation: <strong style={{ color: 'var(--green-700)' }}>{totalVal ? '₹' + Number(totalVal).toLocaleString('en-IN') : '—'}</strong></div>
+                          <div className="job-meta-item">Photos: <strong>📷 {photoCount} photos</strong></div>
+                        </div>
+
+                        {job.sitePhotos?.length > 0 && (
+                          <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto', paddingBottom: 4 }}>
+                            {job.sitePhotos.slice(0, 4).map((photo, pIdx) => (
+                              <img key={pIdx} src={`http://localhost:3000${photo.url}`} alt={photo.name} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--gray-200)' }} />
+                            ))}
+                            {job.sitePhotos.length > 4 && (
+                              <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--gray-100)', display: 'grid', placeItems: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'var(--gray-600)' }}>
+                                +{job.sitePhotos.length - 4}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="job-card-actions">
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => onGenerateReport(job.id, { applicantName: job.customer, branchName: job.branch, caseRefNo: job.id, sitePhotos: job.sitePhotos || [] })}
+                          >
+                            📊 Export Excel Report
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══ VENDOR BILLING ══ */}
+        {activeSection === 'billing' && (
+          <div>
+            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <h2>Vendor Billing & Bank Reports</h2>
+                <p>Consolidated vendor bills submitted by field executives for Ujjivan MLAP and Nivara formats</p>
+              </div>
+            </div>
+
+            {/* Quick Export Cards */}
+            <div className="stats-grid" style={{ marginBottom: 24 }}>
+              <div className="card" style={{ padding: 20, border: '2px solid var(--brand-500)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--brand-600)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Ujjivan Small Finance Bank</div>
+                <h3 style={{ fontSize: '1.1rem', margin: 0, marginBottom: 12 }}>MLAP Vendor Bill (June-Bill Format)</h3>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const ujjJobs = jobs.filter((j) => j.bankCode === 'UJJ' || (j.bank || '').toLowerCase().includes('ujjivan'))
+                    const cases = ujjJobs.map((j) => ({
+                      branch: j.branch || 'Branch',
+                      customerId: j.vendorBillDetails?.customerId || j.id,
+                      customerName: j.customer,
+                      applicantName: j.customer,
+                      opinionDate: j.vendorBillDetails?.opinionDate || new Date().toISOString().split('T')[0],
+                      opinionFee: j.vendorBillDetails?.opinionFee || 1500,
+                      additionalFee: j.vendorBillDetails?.additionalFee || 0,
+                      totalAmount: j.vendorBillDetails?.totalAmount || 1500,
+                      jobCardPrefix: j.vendorBillDetails?.jobCardPrefix || 'K',
+                      jobCardNo: j.vendorBillDetails?.jobCardNo || '',
+                    }))
+                    onGenerateBilling({ bankCode: 'UJJ', monthName: billingForm.monthName, year: billingForm.year, invoiceNo: billingForm.invoiceNo, cases })
+                  }}
+                >
+                  📊 Export Ujjivan Vendor Bill Excel
+                </button>
+              </div>
+
+              <div className="card" style={{ padding: 20, border: '2px solid var(--purple-500)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--purple-600)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Nivara Housing Finance</div>
+                <h3 style={{ fontSize: '1.1rem', margin: 0, marginBottom: 12 }}>Nivara Vendor Bill (Revised Jul Format)</h3>
+                <button
+                  type="button"
+                  className="btn btn-purple"
+                  onClick={() => {
+                    const nivJobs = jobs.filter((j) => j.bankCode === 'NIVARA' || (j.bank || '').toLowerCase().includes('nivara'))
+                    const cases = nivJobs.map((j) => ({
+                      branch: j.branch || 'Branch',
+                      applicantName: j.customer,
+                      initiationDate: j.vendorBillDetails?.opinionDate || new Date().toISOString().split('T')[0],
+                      propertyLocation: j.location || '',
+                      distanceFromBranch: j.visitDetails?.distanceFromBranch || '0',
+                      stage: j.status || 'Fresh',
+                      amount: j.vendorBillDetails?.totalAmount || 1500,
+                      jobCardPrefix: j.vendorBillDetails?.jobCardPrefix || 'K',
+                      jobCardNo: j.vendorBillDetails?.jobCardNo || '',
+                    }))
+                    onGenerateBilling({ bankCode: 'NIVARA', monthName: billingForm.monthName, year: billingForm.year, invoiceNo: billingForm.invoiceNo, cases })
+                  }}
+                >
+                  📊 Export Nivara Vendor Bill Excel
+                </button>
+              </div>
+            </div>
+
+            {/* Submitted Vendor Bills Table */}
+            <div className="card">
+              <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                  <h3 style={{ margin: 0 }}>Submitted Employee Vendor Bills</h3>
+                  <p style={{ fontSize: '0.83rem', color: 'var(--gray-500)', marginTop: 4 }}>
+                    Live vendor bill details filled and submitted by field executives during site visits.
+                  </p>
+                </div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--brand-700)', background: 'var(--brand-50)', padding: '6px 14px', borderRadius: 999 }}>
+                  {filteredBillingJobs.length} Cases Listed
+                </span>
+              </div>
+
+              {/* Billing Filter Toolbar */}
+              <div className="table-toolbar" style={{ padding: '12px 18px', background: 'var(--gray-50)', borderBottom: '1px solid var(--gray-200)', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  className="form-input"
+                  style={{ flex: 1, minWidth: 220, background: '#fff' }}
+                  placeholder="🔍 Search vendor bills by customer, job card, visitor, branch..."
+                  value={billingSearchQuery}
+                  onChange={(e) => setBillingSearchQuery(e.target.value)}
+                />
+                <select className="form-select" style={{ width: 'auto', minWidth: 140, background: '#fff' }} value={billingBankFilter} onChange={(e) => setBillingBankFilter(e.target.value)}>
+                  <option value="ALL">All Banks</option>
+                  <option value="UJJ">Ujjivan</option>
+                  <option value="NIVARA">Nivara</option>
+                </select>
+                <select className="form-select" style={{ width: 'auto', minWidth: 160, background: '#fff' }} value={billingStatusFilter} onChange={(e) => setBillingStatusFilter(e.target.value)}>
+                  <option value="ALL">All Submission States</option>
+                  <option value="SUBMITTED">Submitted by Employee</option>
+                  <option value="PENDING">Pending Submission</option>
+                </select>
+              </div>
+
+              <div className="card-body" style={{ padding: 0 }}>
+                <div className="table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Customer / Applicant</th>
+                        <th>Bank / Branch</th>
+                        <th>Field Executive (Visitor)</th>
+                        <th>Opinion Date</th>
+                        <th>Fee (Rs.)</th>
+                        <th>Job Card</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBillingJobs.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>
+                            No vendor bills match your search filters.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredBillingJobs.map((job, idx) => {
+                          const b = job.vendorBillDetails || {}
+                          const opinionFee = Number(b.opinionFee) || 1500
+                          const additionalFee = Number(b.additionalFee) || 0
+                          const fee = b.totalAmount !== undefined ? b.totalAmount : opinionFee + additionalFee
+                          const isSubmitted = b.submitted || job.status === 'SUBMITTED_FOR_VERIFICATION' || job.status === 'VERIFIED'
+                          return (
+                            <tr key={job.id}>
+                              <td style={{ color: 'var(--gray-400)' }}>{idx + 1}</td>
+                              <td>
+                                <strong style={{ color: 'var(--gray-900)' }}>{job.customer}</strong>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>ID: {b.customerId || job.customerAppNo || job.id?.slice(-6)}</div>
+                              </td>
+                              <td>
+                                <div>{job.bank || job.bankCode}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>{job.branch || 'Main Branch'}</div>
+                              </td>
+                              <td>
+                                <strong style={{ color: 'var(--brand-700)' }}>👷 {job.assignedEmployee || 'Executive'}</strong>
+                              </td>
+                              <td>{b.opinionDate || (job.visitedAt ? new Date(job.visitedAt).toLocaleDateString() : new Date().toLocaleDateString())}</td>
+                              <td style={{ fontWeight: 800, color: 'var(--green-700)' }}>₹{Number(fee).toLocaleString('en-IN')}</td>
+                              <td>
+                                <code style={{ background: 'var(--gray-100)', padding: '2px 6px', borderRadius: 6 }}>
+                                  {b.jobCardPrefix || 'K'} - {b.jobCardNo || idx + 1}
+                                </code>
+                              </td>
+                              <td>
+                                <span className={`badge ${isSubmitted ? 'badge-green' : 'badge-amber'}`}>
+                                  {isSubmitted ? '✓ Submitted' : '⏳ Ready for Export'}
+                                </span>
+                              </td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ padding: '5px 12px', fontSize: '0.78rem' }}
+                                  onClick={() => setViewingBillJob(job)}
+                                >
+                                  👁️ View & Edit Details
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* By Employee Summary */}
+            {billingViewMode === 'byEmployee' && (
+              <div>
+                <div style={{ marginBottom: 16, padding: '14px 20px', background: '#fff', borderRadius: 12, border: '1px solid var(--gray-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <strong>Grand Total ({billingPeriod})</strong>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--green-600)' }}>Rs. {billingSummary?.grandTotal?.toLocaleString() || '—'}</div>
+                  </div>
+                  <span className="badge badge-green">{billingSummary?.byEmployee?.reduce((a, e) => a + e.totalCases, 0) || 0} total cases</span>
+                </div>
+                <div className="billing-summary-grid">
+                  {billingSummary?.byEmployee?.map((emp) => (
+                    <div key={emp.employeeId} className="billing-emp-card">
+                      <div className="billing-emp-name">{emp.employeeName}</div>
+                      <div className="billing-emp-stats">
+                        <div className="billing-emp-stat">
+                          <div className="billing-emp-stat-value">{emp.totalCases}</div>
+                          <div className="billing-emp-stat-label">Cases</div>
+                        </div>
+                        <div className="billing-emp-stat">
+                          <div className="billing-emp-stat-value">₹{emp.totalBilling?.toLocaleString()}</div>
+                          <div className="billing-emp-stat-label">Total Billing</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {!billingSummary?.byEmployee?.length && <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>No billing data for selected period</div>}
+                </div>
+              </div>
+            )}
+
+            {/* By Bank Summary */}
+            {billingViewMode === 'byBank' && (
+              <div className="table-container">
+                <div className="table-toolbar"><strong>Bank Branch Billing Summary</strong></div>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr><th>Bank</th><th>Branch</th><th>Cases</th><th>Total Amount</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                      {billingSummary?.byBank?.map((item, idx) => (
+                        <tr key={idx}>
+                          <td><div className="td-primary">{item.bankName}</div></td>
+                          <td>{item.branch}</td>
+                          <td><span className="badge badge-blue">{item.totalCases}</span></td>
+                          <td><strong style={{ color: 'var(--green-600)' }}>Rs. {item.totalBilling?.toLocaleString()}</strong></td>
+                          <td><button type="button" className="secondary-btn" style={{ fontSize: '0.8rem', padding: '6px 12px' }} onClick={() => handleExport(item.bankCode)}>Export</button></td>
+                        </tr>
+                      )) || []}
+                      {!billingSummary?.byBank?.length && <tr><td colSpan={5}><div className="table-empty"><div className="table-empty-icon">💳</div><p>No billing data</p></div></td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ EMPLOYEES ══ */}
+        {activeSection === 'employees' && (
+          <div>
+            <div className="page-header">
+              <h2>Field Executives</h2>
+              <p>Add and manage field executive accounts</p>
+            </div>
+
+            <div className="card" style={{ marginBottom: 20 }}>
+              <div className="card-header"><h3>Add New Field Executive</h3></div>
+              <div className="card-body">
+                <form onSubmit={handleEmployeeSubmit}>
+                  <div className="form-row" style={{ marginBottom: 14 }}>
+                    {[['name', 'Full Name', 'text'], ['email', 'Email Address', 'email'], ['username', 'Username (login)', 'text'], ['phone', 'Phone Number', 'text']].map(([field, label, type]) => (
+                      <div key={field} className="form-field">
+                        <label className="form-label">{label}</label>
+                        <input className="form-input" type={type} value={employeeForm[field]} onChange={(e) => setEmployeeForm((p) => ({ ...p, [field]: e.target.value }))} placeholder={label} />
+                      </div>
+                    ))}
+                    <div className="form-field">
+                      <label className="form-label">Password</label>
+                      <div className="password-field">
+                        <input className="form-input" type={showEmpPassword ? 'text' : 'password'} value={employeeForm.password} onChange={(e) => setEmployeeForm((p) => ({ ...p, password: e.target.value }))} placeholder="Set login password" />
+                        <button type="button" onClick={() => setShowEmpPassword((v) => !v)}>{showEmpPassword ? 'Hide' : 'Show'}</button>
+                      </div>
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary">Add Executive</button>
+                </form>
+              </div>
+            </div>
+
+            <div className="table-container">
+              <div className="table-toolbar"><strong>{fieldUsers.length} Field Executives</strong></div>
+              <div className="table-scroll">
+                <table>
+                  <thead><tr><th>Name</th><th>Email</th><th>Username</th><th>Phone</th><th>Active Tasks</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {fieldUsers.length === 0 ? (
+                      <tr><td colSpan={6}><div className="table-empty"><div className="table-empty-icon">👷</div><p>No field executives added yet</p></div></td></tr>
+                    ) : fieldUsers.map((emp) => {
+                      const empId = emp.id || emp._id
+                      const empJobs = jobs.filter((j) => j.assignedTo === empId)
+                      return (
+                        <tr key={empId}>
+                          <td><div className="td-primary">{emp.name}</div></td>
+                          <td>{emp.email}</td>
+                          <td><code style={{ background: 'var(--gray-100)', padding: '2px 6px', borderRadius: 6, fontSize: '0.85rem' }}>{emp.username || emp.email}</code></td>
+                          <td>{emp.phone || '—'}</td>
+                          <td><span className="badge badge-blue">{empJobs.length} tasks</span></td>
+                          <td>
+                            <button type="button" className="secondary-btn danger-btn" style={{ padding: '5px 12px', fontSize: '0.78rem' }} onClick={() => handleDeleteEmployee(empId, emp.name)}>Delete</button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ BANKS ══ */}
+        {activeSection === 'banks' && (
+          <div>
+            <div className="page-header">
+              <h2>Bank Template Management</h2>
+              <p>Manage bank configurations, report templates, and billing formats</p>
+            </div>
+
+            <div className="card" style={{ marginBottom: 20 }}>
+              <div className="card-header">
+                <h3>{editingBankId ? 'Edit Bank' : 'Add Bank'}</h3>
+                {editingBankId && <button type="button" className="secondary-btn" onClick={() => { setEditingBankId(''); setBankForm({ name: '', code: '', branchName: '', address: '' }) }}>Cancel</button>}
+              </div>
+              <div className="card-body">
+                <form onSubmit={handleBankSubmit}>
+                  <div className="form-row" style={{ marginBottom: 14 }}>
+                    <div className="form-field">
+                      <label className="form-label">Bank Name</label>
+                      <select className="form-select" value={bankForm.name} onChange={(e) => {
+                        const val = e.target.value
+                        if (val === 'UJJ') setBankForm({ name: 'Ujjivan Small Finance Bank', code: 'UJJ', branchName: 'Suramangalam', address: 'No-30/3-2, Mullai Nagar, Salem Main Road, Suramangalam, Salem - 636005' })
+                        else if (val === 'NIVARA') setBankForm({ name: 'Nivara Home Finance Limited', code: 'NIVARA', branchName: '', address: '' })
+                        else setBankForm((p) => ({ ...p, name: val }))
+                      }}>
+                        <option value="">— Select or type bank name —</option>
+                        <option value="UJJ">Ujjivan Small Finance Bank</option>
+                        <option value="NIVARA">Nivara Home Finance Limited</option>
+                      </select>
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Bank Code</label>
+                      <input className="form-input" value={bankForm.code} onChange={(e) => setBankForm((p) => ({ ...p, code: e.target.value }))} placeholder="e.g. UJJ" />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Branch Name</label>
+                      <input className="form-input" value={bankForm.branchName} onChange={(e) => setBankForm((p) => ({ ...p, branchName: e.target.value }))} placeholder="Branch name" />
+                    </div>
+                    <div className="form-field full-width">
+                      <label className="form-label">Address</label>
+                      <input className="form-input" value={bankForm.address} onChange={(e) => setBankForm((p) => ({ ...p, address: e.target.value }))} placeholder="Bank address" />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary">{editingBankId ? 'Update Bank' : 'Add Bank'}</button>
+                </form>
+              </div>
+            </div>
+
+            <div className="table-container">
+              <div className="table-scroll">
+                <table>
+                  <thead><tr><th>Bank Name</th><th>Code</th><th>Branch</th><th>Report Template</th><th>Bill Template</th><th>Actions</th></tr></thead>
+                  <tbody>
+                    {bankTemplates.length === 0 ? (
+                      <tr><td colSpan={6}><div className="table-empty"><div className="table-empty-icon">🏦</div><p>No banks configured yet</p></div></td></tr>
+                    ) : bankTemplates.map((tpl) => {
+                      const tId = tpl.id || tpl._id
+                      return (
+                        <tr key={tId || tpl.code}>
+                          <td className="td-primary">{tpl.name}</td>
+                          <td><span className="badge badge-blue">{tpl.code}</span></td>
+                          <td>{tpl.branchName || '—'}</td>
+                          <td style={{ fontSize: '0.82rem', color: 'var(--gray-500)' }}>{tpl.reportTemplate || 'Default'}</td>
+                          <td style={{ fontSize: '0.82rem', color: 'var(--gray-500)' }}>{tpl.billingTemplate || 'Default'}</td>
+                          <td>
+                            {tId && (
+                              <div className="inline-actions">
+                                <button type="button" className="secondary-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={() => { setEditingBankId(tId); setBankForm({ name: tpl.name || '', code: tpl.code || '', branchName: tpl.branchName || '', address: tpl.address || '' }) }}>Edit</button>
+                                <button type="button" className="secondary-btn danger-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={async () => { if (window.confirm('Delete?')) { try { await onDeleteBankTemplate(tId); showMsg('Bank deleted') } catch (err) { showMsg(err.message, 'error') } } }}>Delete</button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Vendor Bill Details Modal Popup */}
+        {viewingBillJob && (
+          <div className="photo-lightbox" onClick={() => setViewingBillJob(null)}>
+            <div
+              className="card"
+              style={{ width: '100%', maxWidth: 620, margin: 20, maxHeight: '90vh', overflowY: 'auto', borderRadius: 'var(--radius-2xl)', border: '1px solid var(--gray-200)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header with Aligned Close & Edit Toggle Buttons */}
+              <div className="card-header" style={{ background: 'linear-gradient(135deg, var(--purple-50), #f3e8ff)', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--purple-100)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--purple-600)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '1.1rem', fontWeight: 800 }}>
+                    🧾
+                  </div>
+                  <div>
+                    <h3 style={{ color: 'var(--purple-900)', margin: 0, fontFamily: 'var(--font-display)', fontSize: '1.15rem', fontWeight: 800 }}>
+                      Vendor Bill Details
+                    </h3>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--purple-700)', fontWeight: 600, marginTop: 2 }}>
+                      Field Visitor: <strong>👷 {viewingBillJob.assignedEmployee || 'Field Executive'}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    className={`btn ${isEditingModal ? 'btn-primary' : 'secondary-btn'}`}
+                    style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+                    onClick={() => setIsEditingModal((v) => !v)}
+                  >
+                    {isEditingModal ? '👁️ View Mode' : '✏️ Edit Details'}
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      background: 'rgba(0,0,0,0.06)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: 32,
+                      height: 32,
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: '1.2rem',
+                      fontWeight: 800,
+                      color: 'var(--gray-700)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                    onClick={() => setViewingBillJob(null)}
+                    title="Close"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="card-body" style={{ padding: 24, display: 'grid', gap: 16 }}>
+                {isEditingModal ? (
+                  /* ─── EDIT MODE ─── */
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault()
+                      try {
+                        const opinionFee = Number(editBillForm.opinionFee) || 0
+                        const additionalFee = Number(editBillForm.additionalFee) || 0
+                        const totalAmount = opinionFee + additionalFee
+                        const payload = {
+                          ...editBillForm,
+                          opinionFee,
+                          additionalFee,
+                          totalAmount,
+                          amount: opinionFee,
+                          customerName: viewingBillJob.customer,
+                          branch: viewingBillJob.branch,
+                          bankCode: viewingBillJob.bankCode,
+                          assignedEmployee: viewingBillJob.assignedEmployee,
+                          submitted: true,
+                        }
+
+                        // Update local job state
+                        viewingBillJob.vendorBillDetails = payload
+                        showMsg('Vendor bill details updated successfully!')
+                        setIsEditingModal(false)
+                        onRefresh()
+                      } catch (err) {
+                        showMsg(err.message, 'error')
+                      }
+                    }}
+                    style={{ display: 'grid', gap: 14 }}
+                  >
+                    <div className="form-row">
+                      <div className="form-field">
+                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Customer Name</label>
+                        <input className="form-input" value={viewingBillJob.customer || ''} readOnly style={{ background: 'var(--gray-100)' }} />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Bank & Branch</label>
+                        <input className="form-input" value={`${viewingBillJob.bank} (${viewingBillJob.branch || 'Main'})`} readOnly style={{ background: 'var(--gray-100)' }} />
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-field">
+                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Customer ID / App No</label>
+                        <input
+                          className="form-input"
+                          value={editBillForm.customerId || ''}
+                          onChange={(e) => setEditBillForm((p) => ({ ...p, customerId: e.target.value }))}
+                          placeholder="Customer ID"
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Date of Opinion / Visit</label>
+                        <input
+                          className="form-input"
+                          type="date"
+                          value={editBillForm.opinionDate || ''}
+                          onChange={(e) => setEditBillForm((p) => ({ ...p, opinionDate: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-field">
+                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Opinion Fee (Rs.)</label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          value={editBillForm.opinionFee || 0}
+                          onChange={(e) => setEditBillForm((p) => ({ ...p, opinionFee: e.target.value }))}
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Additional Fee (Rs.)</label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          value={editBillForm.additionalFee || 0}
+                          onChange={(e) => setEditBillForm((p) => ({ ...p, additionalFee: e.target.value }))}
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Total Amount (Rs.)</label>
+                        <input
+                          className="form-input"
+                          value={`₹${(Number(editBillForm.opinionFee) || 0) + (Number(editBillForm.additionalFee) || 0)}`}
+                          readOnly
+                          style={{ background: 'var(--green-50)', fontWeight: 800, color: 'var(--green-700)' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-field">
+                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Job Card Prefix</label>
+                        <input
+                          className="form-input"
+                          value={editBillForm.jobCardPrefix || ''}
+                          onChange={(e) => setEditBillForm((p) => ({ ...p, jobCardPrefix: e.target.value }))}
+                          placeholder="Prefix e.g. K"
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Job Card No.</label>
+                        <input
+                          className="form-input"
+                          value={editBillForm.jobCardNo || ''}
+                          onChange={(e) => setEditBillForm((p) => ({ ...p, jobCardNo: e.target.value }))}
+                          placeholder="Job Card No."
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-field">
+                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Remarks / Special Notes</label>
+                      <input
+                        className="form-input"
+                        value={editBillForm.remarks || ''}
+                        onChange={(e) => setEditBillForm((p) => ({ ...p, remarks: e.target.value }))}
+                        placeholder="Additional remarks"
+                      />
+                    </div>
+
+                    <div className="btn-group" style={{ justifyContent: 'flex-end', marginTop: 10 }}>
+                      <button type="button" className="btn btn-secondary" onClick={() => setIsEditingModal(false)}>Cancel</button>
+                      <button type="submit" className="btn btn-primary">💾 Save & Update Vendor Bill</button>
+                    </div>
+                  </form>
+                ) : (
+                  /* ─── VIEW MODE ─── */
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, background: 'var(--gray-50)', padding: 16, borderRadius: 14, border: '1px solid var(--gray-200)' }}>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Customer Name</div>
+                        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--gray-900)' }}>{viewingBillJob.customer}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Bank & Branch</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--gray-800)' }}>{viewingBillJob.bank} ({viewingBillJob.branch || 'Main'})</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Customer ID / App No</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--gray-800)', wordBreak: 'break-all' }}>{viewingBillJob.vendorBillDetails?.customerId || viewingBillJob.id}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Date of Opinion / Visit</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--gray-800)' }}>{viewingBillJob.vendorBillDetails?.opinionDate || (viewingBillJob.visitedAt ? new Date(viewingBillJob.visitedAt).toLocaleDateString() : '—')}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, background: 'var(--green-50)', padding: 16, borderRadius: 14, border: '1.5px solid var(--green-200)' }}>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--green-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Opinion Fee</div>
+                        <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--green-700)' }}>₹{viewingBillJob.vendorBillDetails?.opinionFee || 1500}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--green-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Additional Fee</div>
+                        <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--green-700)' }}>₹{viewingBillJob.vendorBillDetails?.additionalFee || 0}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--green-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Total Amount</div>
+                        <div style={{ fontWeight: 900, fontSize: '1.25rem', color: 'var(--green-800)' }}>₹{viewingBillJob.vendorBillDetails?.totalAmount || 1500}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, background: 'var(--gray-50)', padding: 16, borderRadius: 14, border: '1px solid var(--gray-200)' }}>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Job Card Prefix & No</div>
+                        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--brand-700)' }}>
+                          {viewingBillJob.vendorBillDetails?.jobCardPrefix || 'K'} - {viewingBillJob.vendorBillDetails?.jobCardNo || '1'}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Field Visitor / Executive</div>
+                        <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--gray-900)' }}>👷 {viewingBillJob.assignedEmployee || 'Unassigned'}</div>
+                      </div>
+                    </div>
+
+                    {viewingBillJob.vendorBillDetails?.remarks && (
+                      <div style={{ background: 'var(--amber-50)', padding: 14, borderRadius: 12, border: '1px solid var(--amber-200)' }}>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--amber-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Remarks / Special Notes</div>
+                        <div style={{ fontSize: '0.9rem', color: 'var(--gray-800)', marginTop: 4, fontWeight: 500 }}>{viewingBillJob.vendorBillDetails.remarks}</div>
+                      </div>
+                    )}
+
+                    <div className="btn-group" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+                      <button type="button" className="btn btn-primary" onClick={() => setIsEditingModal(true)}>✏️ Edit Details</button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setViewingBillJob(null)}>Close</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  )
+}
+
+export default AdminDashboard

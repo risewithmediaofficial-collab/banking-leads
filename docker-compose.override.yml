@@ -1,0 +1,17 @@
+# Local Development Override
+# Automatically used alongside docker-compose.yml for local dev
+
+version: '3.8'
+
+services:
+  backend:
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongo:27017/banking-leads-dev
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    ports:
+      - "87:80"

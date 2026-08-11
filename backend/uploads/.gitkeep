@@ -1,0 +1,2 @@
+# This directory stores uploaded site photos from field executives.
+# Kept in Git to ensure the directory exists in Docker and fresh installs.

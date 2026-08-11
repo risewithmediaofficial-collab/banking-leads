@@ -1,0 +1,19 @@
+{
+  "name": "banking-leads-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "banking-leads": "file:..",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "mongoose": "^9.9.1",
+    "multer": "^2.2.0",
+    "xlsx": "^0.18.5"
+  }
+}
