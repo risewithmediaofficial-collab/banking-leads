@@ -24,6 +24,19 @@ jobs:
           timeout: 60s
           command_timeout: 10m
           script: |
+            # If directory doesn't exist or is not a git repo, clone fresh
+            if [ ! -d /docker/banking-leads/.git ]; then
+              echo "⚡ No git repo found — cloning fresh..."
+              rm -rf /docker/banking-leads
+              mkdir -p /docker
+              git clone https://github.com/risewithmediaofficial-collab/banking-leads.git /docker/banking-leads
+            fi
+
             cd /docker/banking-leads
             git pull origin main
-            docker compose up -d --build
+
+            # Force rebuild with no cache to pick up latest Dockerfile changes
+            docker compose down
+            docker compose up -d --build --no-deps
+            docker image prune -f
+            echo "✅ Deployment complete!"
