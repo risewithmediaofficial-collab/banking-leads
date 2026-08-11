@@ -1273,22 +1273,29 @@ app.use((error, _req, res, _next) => {
   res.status(500).json({ message: error.message || 'Server error' })
 })
 
-const frontendDist = path.join(__dirname, '..', 'frontend', 'dist')
-app.use(express.static(frontendDist))
-
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(frontendDist, 'index.html'))
-})
-
 // Health check endpoint for Docker and load balancers
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'banking-leads-backend' })
 })
 
-// Root info endpoint
+// Root API info endpoint
 app.get('/api', (_req, res) => {
   res.json({ name: 'Banking Leads Management API', version: '1.0.0', status: 'running' })
 })
+
+// Serve frontend in local/monorepo dev mode only (not used in Docker — frontend is a separate Nginx container)
+const frontendDist = path.join(__dirname, '..', 'frontend', 'dist')
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist))
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'))
+  })
+} else {
+  // In Docker: frontend is served by a separate Nginx container
+  app.get('*', (_req, res) => {
+    res.status(404).json({ message: 'Route not found. Frontend is served separately on port 8088.' })
+  })
+}
 
 async function start() {
   await mongoose.connect(mongoUri)
