@@ -48,7 +48,7 @@ services:
     container_name: banking_leads_frontend
     restart: always
     ports:
-      - "87:80"
+      - "8088:80"
     depends_on:
       - backend
     networks:

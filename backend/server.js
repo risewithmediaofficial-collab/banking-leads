@@ -1285,6 +1285,11 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'banking-leads-backend' })
 })
 
+// Root info endpoint
+app.get('/api', (_req, res) => {
+  res.json({ name: 'Banking Leads Management API', version: '1.0.0', status: 'running' })
+})
+
 async function start() {
   await mongoose.connect(mongoUri)
   await createBootstrapAdmin()
