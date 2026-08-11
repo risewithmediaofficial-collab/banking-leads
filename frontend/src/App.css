@@ -1983,6 +1983,19 @@ tbody tr:hover { background: var(--gray-50); }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: var(--gray-50); }
 
+/* ─── Dashboard recent grid ─── */
+.dashboard-recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.mobile-subbar { display: none; }
+.mobile-close-btn { display: none !important; }
+.desktop-collapse-btn { display: grid !important; }
+.sidebar-backdrop { display: none; }
+
 /* ═══════════════════════════════════════════════════════════════
    COMPREHENSIVE RESPONSIVE BREAKPOINTS
 ═══════════════════════════════════════════════════════════════ */
@@ -1995,26 +2008,97 @@ tbody tr:hover { background: var(--gray-50); }
   .property-fields-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 }
 
-/* ─── Tablet (max 768px) ─── */
+/* ─── Tablet & Mobile (max 768px) ─── */
 @media (max-width: 768px) {
   /* App shell topbar */
-  .app-topbar { padding: 0 12px; gap: 8px; }
+  .app-topbar { padding: 0 12px; gap: 8px; height: 56px; }
   .topbar-brand-text { font-size: 0.85rem; }
   .topbar-brand-sub { display: none; }
   .topbar-user-info { display: none; }
   .topbar-logout-btn span { display: none; }
   .topbar-logout-btn { padding: 8px; }
 
-  /* Admin layout — sidebar becomes sleek top horizontal scrollbar on mobile */
-  .admin-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .admin-sidebar {
-    position: static; height: auto; flex-direction: row; overflow-x: auto;
-    padding: 8px 12px; gap: 6px; background: #ffffff; border-right: none;
-    border-bottom: 1px solid var(--gray-200); top: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  /* Mobile navigation bar */
+  .mobile-subbar {
+    display: block;
+    background: #fff;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 8px 12px;
   }
-  .sidebar-section-label { display: none; }
-  .sidebar-nav-btn { padding: 8px 12px; white-space: nowrap; font-size: 0.82rem; flex-shrink: 0; }
+  .mobile-menu-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--gray-200);
+    background: var(--gray-50);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    cursor: pointer;
+  }
+  .mobile-active-label {
+    margin-left: auto;
+    font-size: 0.78rem;
+    color: var(--brand-600);
+    font-weight: 600;
+  }
+
+  /* Admin layout */
+  .admin-layout { grid-template-columns: 1fr; position: relative; }
+
+  .desktop-collapse-btn { display: none !important; }
+  .mobile-close-btn { display: grid !important; }
+
+  /* Sleek Off-Canvas Mobile Drawer Sidebar */
+  .admin-sidebar {
+    position: fixed !important;
+    top: 56px !important;
+    left: -290px !important;
+    width: 270px !important;
+    height: calc(100vh - 56px) !important;
+    z-index: 1000 !important;
+    background: #ffffff !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.18) !important;
+    transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    padding: 16px 12px !important;
+    border-right: 1px solid var(--gray-200) !important;
+    display: flex !important;
+  }
+
+  .admin-sidebar.mobile-open {
+    left: 0 !important;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 999;
+  }
+
+  .sidebar-section-label { display: block !important; }
+  .sidebar-nav-btn {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    padding: 10px 14px !important;
+    font-size: 0.88rem !important;
+  }
+  .sidebar-nav-btn span { display: inline-block !important; }
+
   .admin-main { padding: 14px 12px; }
+
+  /* Dashboard recent cards */
+  .dashboard-recent-grid { grid-template-columns: 1fr; }
 
   /* Field layout — stacks vertically */
   .field-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }

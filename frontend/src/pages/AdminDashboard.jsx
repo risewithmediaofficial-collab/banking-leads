@@ -18,7 +18,8 @@ import {
   Search,
   Check,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Menu
 } from 'lucide-react'
 import { getBillingSummary } from '../services/api'
 
@@ -52,6 +53,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
 
   const [activeSection, setActiveSection] = useState('overview')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [message, setMessage] = useState(null)
   const [leadForm, setLeadForm] = useState(emptyLeadForm)
   const [editingLeadId, setEditingLeadId] = useState('')
@@ -367,18 +369,44 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
 
   return (
     <div className={`admin-layout ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+      {/* ─── Mobile Menu Toggle Bar (Visible only on mobile screens < 768px) ─── */}
+      <div className="mobile-subbar">
+        <button
+          type="button"
+          className="mobile-menu-toggle-btn"
+          onClick={() => setIsMobileMenuOpen((v) => !v)}
+        >
+          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          <span>Navigation Menu</span>
+          <span className="mobile-active-label">• {navItems.find((n) => n.id === activeSection)?.label}</span>
+        </button>
+      </div>
+
+      {/* ─── Backdrop Overlay for Mobile Drawer ─── */}
+      {isMobileMenuOpen && (
+        <div className="sidebar-backdrop" onClick={() => setIsMobileMenuOpen(false)} />
+      )}
+
       {/* ─── Sidebar ─── */}
-      <aside className={`admin-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+      <aside className={`admin-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarCollapsed ? 'center' : 'space-between', padding: isSidebarCollapsed ? '4px 0 10px' : '6px 12px 8px' }}>
           {!isSidebarCollapsed && <div className="sidebar-section-label" style={{ padding: 0 }}>Main Menu</div>}
           <button
             type="button"
-            className="secondary-btn"
+            className="secondary-btn desktop-collapse-btn"
             style={{ padding: 6, borderRadius: '50%', width: 28, height: 28, display: 'grid', placeItems: 'center', minWidth: 28 }}
             onClick={() => setIsSidebarCollapsed((v) => !v)}
             title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
             {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+          <button
+            type="button"
+            className="secondary-btn mobile-close-btn"
+            style={{ padding: 6, borderRadius: '50%', width: 28, height: 28, display: 'grid', placeItems: 'center', minWidth: 28 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <X size={16} />
           </button>
         </div>
 
@@ -387,7 +415,10 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
             key={id}
             type="button"
             className={`sidebar-nav-btn ${activeSection === id ? 'active-nav' : ''}`}
-            onClick={() => setActiveSection(id)}
+            onClick={() => {
+              setActiveSection(id)
+              setIsMobileMenuOpen(false)
+            }}
             title={isSidebarCollapsed ? label : ''}
           >
             <span className="nav-icon"><Icon id={icon} /></span>
@@ -433,7 +464,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="dashboard-recent-grid">
               {/* Recent Leads */}
               <div className="table-container">
                 <div className="table-toolbar">
