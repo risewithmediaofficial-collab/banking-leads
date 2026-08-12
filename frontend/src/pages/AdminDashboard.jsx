@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import {
   LayoutDashboard,
   FolderPlus,
@@ -66,7 +66,7 @@ const isDateInRange = (dateVal, startDate, endDate) => {
 
 function DateRangeFilter({ startDate, endDate, onStartDateChange, onEndDateChange, onClear }) {
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', background: 'var(--gray-50)', padding: '4px 10px', borderRadius: 10, border: '1px solid var(--gray-200)' }}>
+    <div className="date-range-filter-box">
       <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--gray-600)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
         📅 Date Range:
       </span>
@@ -119,7 +119,7 @@ function Icon({ id }) {
   return map[id] || null
 }
 
-function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, users, loading, onRefresh, onCreateLead, onUpdateLead, onDeleteLead, onExportLeads, onCreateBankTemplate, onUpdateBankTemplate, onDeleteBankTemplate, onCreateEmployee, onDeleteEmployee, onCreateTask, onAssignLead, onDeleteJob, onVerifyJob, onGenerateReport, onGenerateBilling }) {
+function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, users, loading, onRefresh, onCreateLead, onUpdateLead, onDeleteLead, onExportLeads, onCreateBankTemplate, onUpdateBankTemplate, onDeleteBankTemplate, onCreateEmployee, onDeleteEmployee, onCreateTask, onAssignLead, onDeleteJob, onVerifyJob, onGenerateReport, onGenerateBilling, onSubmitVendorBill }) {
   const stats = dashboardData?.stats || []
   const fieldUsers = users.filter((u) => u.role === 'field')
 
@@ -127,6 +127,46 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [message, setMessage] = useState(null)
+  const mobileToggleRef = useRef(null)
+  const sidebarRef = useRef(null)
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return
+    const prevFocused = document.activeElement
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const focusFirst = () => {
+      const focusable = sidebarRef.current?.querySelectorAll('a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])')
+      if (focusable && focusable.length) focusable[0].focus()
+    }
+    focusFirst()
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') { setIsMobileMenuOpen(false); return }
+      if (e.key === 'Tab') {
+        const focusable = sidebarRef.current?.querySelectorAll('a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])') || []
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+        else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    const onResize = () => setIsMobileMenuOpen(false)
+    window.addEventListener('orientationchange', onResize)
+    window.addEventListener('resize', onResize)
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('orientationchange', onResize)
+      window.removeEventListener('resize', onResize)
+      document.body.style.overflow = prevOverflow
+      try { if (prevFocused && prevFocused.focus) prevFocused.focus() } catch (e) {}
+    }
+  }, [isMobileMenuOpen])
 
   // Date Filter States
   const [overviewFromDate, setOverviewFromDate] = useState('')
@@ -151,6 +191,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [selectedLeadForTask, setSelectedLeadForTask] = useState('')
   const [taskForm, setTaskForm] = useState({ customer: '', customerPhone: '', bankCode: 'UJJ', branch: '', location: '', loanType: '', dueDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), notes: '', employeeId: '' })
+  const [showAddTask, setShowAddTask] = useState(false)
   const [reportForm, setReportForm] = useState(reportDefaults)
   const [selectedJobId, setSelectedJobId] = useState('')
   const [billingForm, setBillingForm] = useState(billingDefaults)
@@ -362,9 +403,31 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
     setActiveSection('task')
   }
 
+  const [submittingTask, setSubmittingTask] = useState(false)
+  const [exportingBank, setExportingBank] = useState('')
+  const [savingBill, setSavingBill] = useState(false)
   const handleTaskSubmit = async (e) => {
     e.preventDefault()
-    try { await onCreateTask({ ...taskForm, employeeId: taskForm.employeeId || fieldUsers[0]?.id }); setTaskForm({ customer: '', customerPhone: '', bankCode: 'UJJ', branch: '', location: '', loanType: '', dueDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), notes: '', employeeId: '' }); setSelectedLeadForTask(''); showMsg('Task created and assigned to employee') } catch (err) { showMsg(err.message, 'error') }
+    if (submittingTask) return
+    setSubmittingTask(true)
+    try {
+      // If a lead was selected for quick-fill, assign that lead instead of creating a duplicate
+      if (selectedLeadForTask) {
+        const empId = taskForm.employeeId || fieldUsers[0]?.id
+        await onAssignLead(selectedLeadForTask, empId, taskForm.bankCode || 'UJJ')
+        showMsg('Task assigned to employee')
+      } else {
+        await onCreateTask({ ...taskForm, employeeId: taskForm.employeeId || fieldUsers[0]?.id })
+        showMsg('Task created and assigned to employee')
+      }
+      setTaskForm({ customer: '', customerPhone: '', bankCode: 'UJJ', branch: '', location: '', loanType: '', dueDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), notes: '', employeeId: '' })
+      setSelectedLeadForTask('')
+      onRefresh()
+    } catch (err) {
+      showMsg(err.message, 'error')
+    } finally {
+      setSubmittingTask(false)
+    }
   }
 
   const handleAssign = async (leadId) => {
@@ -403,7 +466,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
   const navItems = [
     { id: 'overview', label: 'Dashboard', icon: 'overview' },
     { id: 'leads', label: 'Bank Leads', icon: 'leads', badge: leads.filter((l) => l.status === 'NEW').length || null },
-    { id: 'task', label: 'Add Task', icon: 'task' },
+    // 'Add Task' moved into All Tasks view as an inline form
     { id: 'tasks', label: 'All Tasks', icon: 'tasks', badge: jobs.filter((j) => j.status === 'SUBMITTED_FOR_VERIFICATION').length || null },
     { id: 'verify', label: 'Verify Work', icon: 'verify', badge: jobs.filter((j) => j.status === 'SUBMITTED_FOR_VERIFICATION').length || null },
     { id: 'report', label: 'Reports', icon: 'report' },
@@ -464,13 +527,15 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
       {/* ─── Mobile Menu Toggle Bar (Visible only on mobile screens < 768px) ─── */}
       <div className="mobile-subbar">
         <button
+          ref={mobileToggleRef}
           type="button"
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="admin-sidebar"
+          aria-label="Toggle navigation menu"
           className="mobile-menu-toggle-btn"
           onClick={() => setIsMobileMenuOpen((v) => !v)}
         >
           {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          <span>Navigation Menu</span>
-          <span className="mobile-active-label">• {navItems.find((n) => n.id === activeSection)?.label}</span>
         </button>
       </div>
 
@@ -480,7 +545,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
       )}
 
       {/* ─── Sidebar ─── */}
-      <aside className={`admin-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+      <aside id="admin-sidebar" ref={sidebarRef} className={`admin-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: isSidebarCollapsed ? 'center' : 'space-between', padding: isSidebarCollapsed ? '4px 0 10px' : '6px 12px 8px' }}>
           {!isSidebarCollapsed && <div className="sidebar-section-label" style={{ padding: 0 }}>Main Menu</div>}
           <button
@@ -793,85 +858,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
           </div>
         )}
 
-        {/* ══ ADD TASK ══ */}
-        {activeSection === 'task' && (
-          <div>
-            <div className="page-header">
-              <h2>Create & Assign Task</h2>
-              <p>Assign a property visit task to a field executive</p>
-            </div>
-            <div className="card">
-              <div className="card-header">
-                <h3>New Task Details</h3>
-                {selectedLeadForTask && <span className="badge badge-blue">From Lead: {leads.find((l) => (l.id || l._id) === selectedLeadForTask)?.customer}</span>}
-              </div>
-              <div className="card-body">
-                {/* Quick Select from Leads */}
-                <div style={{ marginBottom: 18 }}>
-                  <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>Quick fill from existing lead</label>
-                  <select className="form-select" style={{ maxWidth: 400 }} value={selectedLeadForTask} onChange={(e) => selectLeadForTask(e.target.value)}>
-                    <option value="">— Select a lead to auto-fill —</option>
-                    {leads.map((lead) => {
-                      const lid = lead.id || lead._id
-                      return <option key={lid} value={lid}>{lead.customer} — {lead.bankCode} — {lead.branch}</option>
-                    })}
-                  </select>
-                </div>
-
-                <form onSubmit={handleTaskSubmit}>
-                  <div className="form-row" style={{ marginBottom: 14 }}>
-                    <div className="form-field">
-                      <label className="form-label">Bank</label>
-                      <select className="form-select" value={taskForm.bankCode} onChange={(e) => setTaskForm((p) => ({ ...p, bankCode: e.target.value }))}>
-                        <option value="UJJ">Ujjivan Small Finance Bank</option>
-                        <option value="NIVARA">Nivara Home Finance Limited</option>
-                      </select>
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Customer Name <span className="required">*</span></label>
-                      <input className="form-input" value={taskForm.customer} onChange={(e) => setTaskForm((p) => ({ ...p, customer: e.target.value }))} placeholder="Customer full name" required />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Customer Phone</label>
-                      <input className="form-input" value={taskForm.customerPhone} onChange={(e) => setTaskForm((p) => ({ ...p, customerPhone: e.target.value }))} placeholder="Mobile number" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Branch</label>
-                      <input className="form-input" value={taskForm.branch} onChange={(e) => setTaskForm((p) => ({ ...p, branch: e.target.value }))} placeholder="Bank branch" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Property Location</label>
-                      <input className="form-input" value={taskForm.location} onChange={(e) => setTaskForm((p) => ({ ...p, location: e.target.value }))} placeholder="Property address" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Loan / Case Type</label>
-                      <select className="form-select" value={taskForm.loanType} onChange={(e) => setTaskForm((p) => ({ ...p, loanType: e.target.value }))}>
-                        <option value="LAP">LAP</option><option value="HL">Home Loan</option>
-                        <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
-                      </select>
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Due Date</label>
-                      <input className="form-input" value={taskForm.dueDate} onChange={(e) => setTaskForm((p) => ({ ...p, dueDate: e.target.value }))} placeholder="dd.mm.yyyy" />
-                    </div>
-                    <div className="form-field">
-                      <label className="form-label">Assign To Field Executive <span className="required">*</span></label>
-                      <select className="form-select" value={taskForm.employeeId} onChange={(e) => setTaskForm((p) => ({ ...p, employeeId: e.target.value }))}>
-                        <option value="">— Select Executive —</option>
-                        {fieldUsers.map((emp) => <option key={emp.id || emp._id} value={emp.id || emp._id}>{emp.name} ({emp.email})</option>)}
-                      </select>
-                    </div>
-                    <div className="form-field full-width">
-                      <label className="form-label">Task Notes / Instructions</label>
-                      <textarea className="form-textarea" value={taskForm.notes} onChange={(e) => setTaskForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Special instructions, bank reference, remarks..." rows={3} />
-                    </div>
-                  </div>
-                  <button type="submit" className="btn btn-primary btn-lg">Create & Assign Task →</button>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Add Task moved into All Tasks view */}
 
         {/* ══ ALL TASKS ══ */}
         {activeSection === 'tasks' && (
@@ -924,6 +911,98 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                 </span>
               </div>
             </div>
+
+            {/* Add Task CTA & Inline Form */}
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button type="button" className="btn btn-primary" onClick={() => setShowAddTask((v) => !v)}>{showAddTask ? 'Close' : 'Add Task'}</button>
+                <div style={{ color: 'var(--gray-600)', fontWeight: 600 }}>Quickly create and assign a new task</div>
+              </div>
+              <div style={{ color: 'var(--gray-500)', fontSize: '0.9rem' }}>
+                Use the highlighted button to open the task form inline.
+              </div>
+            </div>
+
+            {showAddTask && (
+              <>
+                <div className="modal-backdrop" onClick={() => setShowAddTask(false)} />
+                <div className="modal" role="dialog" aria-modal="true" aria-labelledby="addTaskTitle" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h3 id="addTaskTitle">New Task Details</h3>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      {selectedLeadForTask && <span className="badge badge-blue">From Lead: {leads.find((l) => (l.id || l._id) === selectedLeadForTask)?.customer}</span>}
+                      <button type="button" className="secondary-btn modal-close" onClick={() => setShowAddTask(false)}>Close</button>
+                    </div>
+                  </div>
+                  <div className="modal-body">
+                    <div style={{ marginBottom: 12 }}>
+                      <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>Quick fill from existing lead</label>
+                      <select className="form-select" style={{ maxWidth: 420 }} value={selectedLeadForTask} onChange={(e) => selectLeadForTask(e.target.value)}>
+                        <option value="">— Select a lead to auto-fill —</option>
+                        {leads.map((lead) => {
+                          const lid = lead.id || lead._id
+                          return <option key={lid} value={lid}>{lead.customer} — {lead.bankCode} — {lead.branch}</option>
+                        })}
+                      </select>
+                    </div>
+
+                    <form onSubmit={handleTaskSubmit}>
+                      <div className="form-row" style={{ marginBottom: 14 }}>
+                        <div className="form-field">
+                          <label className="form-label">Bank</label>
+                          <select className="form-select" value={taskForm.bankCode} onChange={(e) => setTaskForm((p) => ({ ...p, bankCode: e.target.value }))}>
+                            <option value="UJJ">Ujjivan Small Finance Bank</option>
+                            <option value="NIVARA">Nivara Home Finance Limited</option>
+                          </select>
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Customer Name <span className="required">*</span></label>
+                          <input className="form-input" value={taskForm.customer} onChange={(e) => setTaskForm((p) => ({ ...p, customer: e.target.value }))} placeholder="Customer full name" required />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Customer Phone</label>
+                          <input className="form-input" value={taskForm.customerPhone} onChange={(e) => setTaskForm((p) => ({ ...p, customerPhone: e.target.value }))} placeholder="Mobile number" />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Branch</label>
+                          <input className="form-input" value={taskForm.branch} onChange={(e) => setTaskForm((p) => ({ ...p, branch: e.target.value }))} placeholder="Bank branch" />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Property Location</label>
+                          <input className="form-input" value={taskForm.location} onChange={(e) => setTaskForm((p) => ({ ...p, location: e.target.value }))} placeholder="Property address" />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Loan / Case Type</label>
+                          <select className="form-select" value={taskForm.loanType} onChange={(e) => setTaskForm((p) => ({ ...p, loanType: e.target.value }))}>
+                            <option value="LAP">LAP</option><option value="HL">Home Loan</option>
+                            <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
+                          </select>
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Due Date</label>
+                          <input className="form-input" value={taskForm.dueDate} onChange={(e) => setTaskForm((p) => ({ ...p, dueDate: e.target.value }))} placeholder="dd.mm.yyyy" />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">Assign To Field Executive <span className="required">*</span></label>
+                          <select className="form-select" value={taskForm.employeeId} onChange={(e) => setTaskForm((p) => ({ ...p, employeeId: e.target.value }))}>
+                            <option value="">— Select Executive —</option>
+                            {fieldUsers.map((emp) => <option key={emp.id || emp._id} value={emp.id || emp._id}>{emp.name} ({emp.email})</option>)}
+                          </select>
+                        </div>
+                        <div className="form-field full-width">
+                          <label className="form-label">Task Notes / Instructions</label>
+                          <textarea className="form-textarea" value={taskForm.notes} onChange={(e) => setTaskForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Special instructions, bank reference, remarks..." rows={3} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                        <button type="button" className="secondary-btn" onClick={() => setShowAddTask(false)}>Cancel</button>
+                        <button type="submit" className="btn btn-primary btn-lg" disabled={submittingTask}>{submittingTask ? 'Processing...' : 'Create & Assign Task →'}</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="jobs-grid">
               {filteredTasks.length === 0 ? (
@@ -1159,57 +1238,75 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
             </div>
 
             {/* Quick Export Cards */}
-            <div className="stats-grid" style={{ marginBottom: 24 }}>
-              <div className="card" style={{ padding: 20, border: '2px solid var(--brand-500)' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--brand-600)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Ujjivan Small Finance Bank</div>
-                <h3 style={{ fontSize: '1.1rem', margin: 0, marginBottom: 12 }}>MLAP Vendor Bill (June-Bill Format)</h3>
+            <div className="billing-export-grid">
+              <div className="card billing-export-card" style={{ border: '2px solid var(--brand-500)' }}>
+                <div className="card-bank-tag" style={{ color: 'var(--brand-600)' }}>Ujjivan Small Finance Bank</div>
+                <h3 className="card-bank-title">MLAP Vendor Bill (June-Bill Format)</h3>
                 <button
                   type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    const ujjJobs = jobs.filter((j) => j.bankCode === 'UJJ' || (j.bank || '').toLowerCase().includes('ujjivan'))
-                    const cases = ujjJobs.map((j) => ({
-                      branch: j.branch || 'Branch',
-                      customerId: j.vendorBillDetails?.customerId || j.id,
-                      customerName: j.customer,
-                      applicantName: j.customer,
-                      opinionDate: j.vendorBillDetails?.opinionDate || new Date().toISOString().split('T')[0],
-                      opinionFee: j.vendorBillDetails?.opinionFee || 1500,
-                      additionalFee: j.vendorBillDetails?.additionalFee || 0,
-                      totalAmount: j.vendorBillDetails?.totalAmount || 1500,
-                      jobCardPrefix: j.vendorBillDetails?.jobCardPrefix || 'K',
-                      jobCardNo: j.vendorBillDetails?.jobCardNo || '',
-                    }))
-                    onGenerateBilling({ bankCode: 'UJJ', monthName: billingForm.monthName, year: billingForm.year, invoiceNo: billingForm.invoiceNo, cases })
+                  className="btn btn-primary btn-full-mobile"
+                  disabled={exportingBank === 'UJJ'}
+                  onClick={async () => {
+                    try {
+                      setExportingBank('UJJ')
+                      const ujjJobs = jobs.filter((j) => j.bankCode === 'UJJ' || (j.bank || '').toLowerCase().includes('ujjivan'))
+                      const cases = ujjJobs.map((j) => ({
+                        branch: j.branch || 'Branch',
+                        customerId: j.vendorBillDetails?.customerId || j.id,
+                        customerName: j.customer,
+                        applicantName: j.customer,
+                        opinionDate: j.vendorBillDetails?.opinionDate || new Date().toISOString().split('T')[0],
+                        opinionFee: j.vendorBillDetails?.opinionFee || 1500,
+                        additionalFee: j.vendorBillDetails?.additionalFee || 0,
+                        totalAmount: j.vendorBillDetails?.totalAmount || 1500,
+                        jobCardPrefix: j.vendorBillDetails?.jobCardPrefix || 'K',
+                        jobCardNo: j.vendorBillDetails?.jobCardNo || '',
+                      }))
+                      await onGenerateBilling({ bankCode: 'UJJ', monthName: billingForm.monthName, year: billingForm.year, invoiceNo: billingForm.invoiceNo, cases })
+                      showMsg('Ujjivan vendor bill exported')
+                    } catch (err) {
+                      showMsg(err.message, 'error')
+                    } finally {
+                      setExportingBank('')
+                    }
                   }}
                 >
-                  📊 Export Ujjivan Vendor Bill Excel
+                  {exportingBank === 'UJJ' ? 'Exporting...' : '📊 Export Ujjivan Vendor Bill Excel'}
                 </button>
               </div>
 
-              <div className="card" style={{ padding: 20, border: '2px solid var(--purple-500)' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--purple-600)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Nivara Housing Finance</div>
-                <h3 style={{ fontSize: '1.1rem', margin: 0, marginBottom: 12 }}>Nivara Vendor Bill (Revised Jul Format)</h3>
+              <div className="card billing-export-card" style={{ border: '2px solid var(--purple-500)' }}>
+                <div className="card-bank-tag" style={{ color: 'var(--purple-600)' }}>Nivara Housing Finance</div>
+                <h3 className="card-bank-title">Nivara Vendor Bill (Revised Jul Format)</h3>
                 <button
                   type="button"
-                  className="btn btn-purple"
-                  onClick={() => {
-                    const nivJobs = jobs.filter((j) => j.bankCode === 'NIVARA' || (j.bank || '').toLowerCase().includes('nivara'))
-                    const cases = nivJobs.map((j) => ({
-                      branch: j.branch || 'Branch',
-                      applicantName: j.customer,
-                      initiationDate: j.vendorBillDetails?.opinionDate || new Date().toISOString().split('T')[0],
-                      propertyLocation: j.location || '',
-                      distanceFromBranch: j.visitDetails?.distanceFromBranch || '0',
-                      stage: j.status || 'Fresh',
-                      amount: j.vendorBillDetails?.totalAmount || 1500,
-                      jobCardPrefix: j.vendorBillDetails?.jobCardPrefix || 'K',
-                      jobCardNo: j.vendorBillDetails?.jobCardNo || '',
-                    }))
-                    onGenerateBilling({ bankCode: 'NIVARA', monthName: billingForm.monthName, year: billingForm.year, invoiceNo: billingForm.invoiceNo, cases })
+                  className="btn btn-purple btn-full-mobile"
+                  disabled={exportingBank === 'NIVARA'}
+                  onClick={async () => {
+                    try {
+                      setExportingBank('NIVARA')
+                      const nivJobs = jobs.filter((j) => j.bankCode === 'NIVARA' || (j.bank || '').toLowerCase().includes('nivara'))
+                      const cases = nivJobs.map((j) => ({
+                        branch: j.branch || 'Branch',
+                        applicantName: j.customer,
+                        initiationDate: j.vendorBillDetails?.opinionDate || new Date().toISOString().split('T')[0],
+                        propertyLocation: j.location || '',
+                        distanceFromBranch: j.visitDetails?.distanceFromBranch || '0',
+                        stage: j.status || 'Fresh',
+                        amount: j.vendorBillDetails?.totalAmount || 1500,
+                        jobCardPrefix: j.vendorBillDetails?.jobCardPrefix || 'K',
+                        jobCardNo: j.vendorBillDetails?.jobCardNo || '',
+                      }))
+                      await onGenerateBilling({ bankCode: 'NIVARA', monthName: billingForm.monthName, year: billingForm.year, invoiceNo: billingForm.invoiceNo, cases })
+                      showMsg('Nivara vendor bill exported')
+                    } catch (err) {
+                      showMsg(err.message, 'error')
+                    } finally {
+                      setExportingBank('')
+                    }
                   }}
                 >
-                  📊 Export Nivara Vendor Bill Excel
+                  {exportingBank === 'NIVARA' ? 'Exporting...' : '📊 Export Nivara Vendor Bill Excel'}
                 </button>
               </div>
             </div>
@@ -1599,6 +1696,8 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                   <form
                     onSubmit={async (e) => {
                       e.preventDefault()
+                      if (savingBill) return
+                      setSavingBill(true)
                       try {
                         const opinionFee = Number(editBillForm.opinionFee) || 0
                         const additionalFee = Number(editBillForm.additionalFee) || 0
@@ -1616,13 +1715,21 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                           submitted: true,
                         }
 
-                        // Update local job state
-                        viewingBillJob.vendorBillDetails = payload
+                        // Persist vendor bill server-side via prop handler if available
+                        if (onSubmitVendorBill) {
+                          await onSubmitVendorBill(viewingBillJob.id, payload)
+                        } else {
+                          // Fallback: optimistic local update
+                          viewingBillJob.vendorBillDetails = payload
+                        }
+
                         showMsg('Vendor bill details updated successfully!')
                         setIsEditingModal(false)
                         onRefresh()
                       } catch (err) {
                         showMsg(err.message, 'error')
+                      } finally {
+                        setSavingBill(false)
                       }
                     }}
                     style={{ display: 'grid', gap: 14 }}
@@ -1722,7 +1829,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
 
                     <div className="btn-group" style={{ justifyContent: 'flex-end', marginTop: 10 }}>
                       <button type="button" className="btn btn-secondary" onClick={() => setIsEditingModal(false)}>Cancel</button>
-                      <button type="submit" className="btn btn-primary">💾 Save & Update Vendor Bill</button>
+                      <button type="submit" className="btn btn-primary" disabled={savingBill}>{savingBill ? 'Saving...' : '💾 Save & Update Vendor Bill'}</button>
                     </div>
                   </form>
                 ) : (

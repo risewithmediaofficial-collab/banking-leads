@@ -139,17 +139,18 @@ function App() {
             <div className="topbar-user-role">{isAdmin ? 'Administrator' : 'Field Executive'}</div>
           </div>
           <div className="topbar-user-avatar">{initials}</div>
-          <button type="button" className="topbar-logout-btn" onClick={handleLogout}>
+          <button type="button" className="topbar-logout-btn" onClick={handleLogout} title="Logout">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
-            Logout
+            <span className="logout-text">Logout</span>
           </button>
         </div>
       </header>
 
+      <main id="main" role="main">
       {isAdmin ? (
         <AdminDashboard
           user={user}
@@ -176,6 +177,7 @@ function App() {
           onVerifyJob={handleVerifyJob}
           onGenerateReport={handleGenerateReport}
           onGenerateBilling={handleGenerateBilling}
+          onSubmitVendorBill={handleSubmitVendorBill}
         />
       ) : (
         <FieldDashboard
@@ -189,6 +191,7 @@ function App() {
           onRefresh={refresh}
         />
       )}
+    </main>
     </div>
   )
 }

@@ -628,6 +628,82 @@ async function generateVendorBill(payload) {
 
     const fileName = `${safeFilePart(payload.invoiceNo || payload.monthName)}-mlap-vendor-bill.xlsx`
     const filePath = path.join(generatedDir, fileName)
+    // Ensure table outline/borders for exported data rows and header
+    try {
+      const startRow = 26
+      const endRow = excelRow
+      const firstCol = 2 // B
+      const lastCol = 15 // O
+      for (let r = startRow; r <= endRow; r += 1) {
+        const row = sheet.getRow(r)
+        for (let c = firstCol; c <= lastCol; c += 1) {
+          const cell = row.getCell(c)
+          if (cell) {
+            cell.border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' },
+            }
+            // Align numeric and text columns appropriately
+            if (c === 9 || c === 13 || c === 12 || c === 11) { // I, M, L, K columns often amounts/dates
+              cell.alignment = { vertical: 'middle', horizontal: 'center' }
+            } else {
+              cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
+            }
+            // Format numbers where applicable
+            if (c === 13 || c === 11) cell.numFmt = '#,##0.00'
+          }
+        }
+      }
+      // Header row above data (row 25) — ensure border too
+      const headerRow = sheet.getRow(25)
+      for (let c = firstCol; c <= lastCol; c += 1) {
+        const cell = headerRow.getCell(c)
+        if (cell) cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      }
+    } catch (e) {
+      console.error('Failed to apply borders to MLAP export', e)
+    }
+    // Style headers, title and branch lines for MLAP sheet
+    try {
+      // Set column widths for readability
+      const colWidths = [8, 18, 28, 14, 14, 10, 10, 10, 10, 10, 8, 12, 12, 10]
+      for (let i = 0; i < colWidths.length; i += 1) {
+        const col = sheet.getColumn(i + 2) // start at B
+        if (col) col.width = colWidths[i]
+      }
+
+      // Header row styling (row 25)
+      headerRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = { bold: true }
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }
+      })
+
+      // Branch title rows (row numbers vary but we created a merged row before each branch)
+      // Find rows where column D (4) has a value ending with 'Branch' and style them
+      for (let r = 26; r <= excelRow; r += 1) {
+        const cell = sheet.getCell(`D${r}`)
+        if (cell && typeof cell.value === 'string' && /Branch$/.test(cell.value)) {
+          // merge D..H on that row if not already merged
+          try { sheet.mergeCells(`D${r}:H${r}`) } catch (err) {}
+          const mergedCell = sheet.getCell(`D${r}`)
+          mergedCell.font = { bold: true, size: 13 }
+          mergedCell.alignment = { vertical: 'middle', horizontal: 'center' }
+        }
+      }
+
+      // Total row style (the cell B{excelRow} was set earlier)
+      const totalCell = sheet.getCell(`B${excelRow}`)
+      totalCell.font = { bold: true }
+      totalCell.alignment = { vertical: 'middle', horizontal: 'center' }
+      const totalValueCell = sheet.getCell(`M${excelRow}`)
+      totalValueCell.font = { bold: true }
+      totalValueCell.numFmt = '#,##0.00'
+    } catch (e) {
+      console.error('Failed to apply MLAP styling', e)
+    }
     await workbook.xlsx.writeFile(filePath)
     return `/generated/${fileName}`
   }
@@ -713,6 +789,74 @@ async function generateVendorBill(payload) {
 
   const fileName = `${safeFilePart(payload.invoiceNo || payload.monthName)}-vendor-bill.xlsx`
   const filePath = path.join(generatedDir, fileName)
+  // Ensure table outline/borders for exported data rows and header (Nivara)
+  try {
+    const startRow = 10
+    const endRow = excelRow
+    const firstCol = 2 // B
+    const lastCol = 11 // K
+    for (let r = startRow; r <= endRow; r += 1) {
+      const row = sheet.getRow(r)
+      for (let c = firstCol; c <= lastCol; c += 1) {
+        const cell = row.getCell(c)
+        if (cell) {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          }
+          // Align and number format
+          if (c === 8 || c === 7) {
+            cell.alignment = { vertical: 'middle', horizontal: 'center' }
+          } else {
+            cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
+          }
+          if (c === 8) cell.numFmt = '#,##0.00'
+        }
+      }
+    }
+    // Header row above data (row 10 header is at 10 or 9 depending on template); ensure row 10 header has borders
+    const headerRow = sheet.getRow(10)
+    for (let c = firstCol; c <= lastCol; c += 1) {
+      const cell = headerRow.getCell(c)
+      if (cell) cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+    }
+  } catch (e) {
+    console.error('Failed to apply borders to Nivara export', e)
+  }
+  // Nivara sheet styling: set column widths, header bold, branch title and totals
+  try {
+    const colWidths = [6, 24, 14, 26, 10, 10, 10, 14, 10]
+    for (let i = 0; i < colWidths.length; i += 1) {
+      const col = sheet.getColumn(i + 2) // B
+      if (col) col.width = colWidths[i]
+    }
+    const headerRow = sheet.getRow(10)
+    headerRow.eachCell({ includeEmpty: true }, (cell) => {
+      cell.font = { bold: true }
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }
+    })
+
+    // Style branch title rows (they were written at excelRow positions with merged B..H earlier)
+    for (let r = 10; r <= excelRow; r += 1) {
+      const val = sheet.getCell(`B${r}`).value
+      if (val && typeof val === 'string' && /BRANCH/i.test(String(val))) {
+        try { sheet.mergeCells(`B${r}:H${r}`) } catch (err) {}
+        const merged = sheet.getCell(`B${r}`)
+        merged.font = { bold: true, size: 13 }
+        merged.alignment = { vertical: 'middle', horizontal: 'center' }
+      }
+    }
+
+    // Total amount row
+    const lastTotalCell = sheet.getCell(`G${excelRow}`)
+    if (lastTotalCell) lastTotalCell.font = { bold: true }
+    if (lastTotalCell) lastTotalCell.numFmt = '#,##0.00'
+  } catch (e) {
+    console.error('Failed to apply Nivara styling', e)
+  }
   await workbook.xlsx.writeFile(filePath)
   return `/generated/${fileName}`
 }
