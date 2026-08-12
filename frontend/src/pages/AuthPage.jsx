@@ -75,7 +75,7 @@ function AuthPage({ onLogin }) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@banking.com"
+                placeholder="Enter your email"
                 required
                 autoFocus
               />
@@ -110,10 +110,6 @@ function AuthPage({ onLogin }) {
               {loading ? 'Signing in...' : 'Sign in →'}
             </button>
           </form>
-
-          <p style={{ marginTop: 24, textAlign: 'center', fontSize: '0.82rem', color: 'var(--gray-400)' }}>
-            Admin: admin@banking.com / admin123
-          </p>
         </div>
       </div>
     </div>
