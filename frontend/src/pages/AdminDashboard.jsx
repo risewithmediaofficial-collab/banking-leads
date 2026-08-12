@@ -22,6 +22,8 @@ import {
   Menu
 } from 'lucide-react'
 import { getBillingSummary } from '../services/api'
+import PropertyCaseForm from './PropertyCaseForm.jsx'
+
 
 /* ─── Constants ─── */
 const billingDefaults = { bankCode: 'UJJ', invoiceNo: '007RKD/NHF/AUG/2026', invoiceDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), monthName: 'August', year: '2026' }
@@ -130,16 +132,18 @@ function Icon({ id }) {
   return map[id] || null
 }
 
-function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, users, loading, onRefresh, onCreateLead, onUpdateLead, onDeleteLead, onExportLeads, onCreateBankTemplate, onUpdateBankTemplate, onDeleteBankTemplate, onCreateEmployee, onDeleteEmployee, onCreateTask, onAssignLead, onDeleteJob, onVerifyJob, onGenerateReport, onGenerateBilling, onSubmitVendorBill }) {
+function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, users, loading, onRefresh, onCreateLead, onUpdateLead, onDeleteLead, onExportLeads, onCreateBankTemplate, onUpdateBankTemplate, onDeleteBankTemplate, onCreateEmployee, onDeleteEmployee, onCreateTask, onAssignLead, onSubmitJob, onDeleteJob, onVerifyJob, onGenerateReport, onGenerateBilling, onSubmitVendorBill }) {
   const stats = dashboardData?.stats || []
   const fieldUsers = users.filter((u) => u.role === 'field')
 
   const [activeSection, setActiveSection] = useState('overview')
+  const [editingJobForm, setEditingJobForm] = useState(null)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [message, setMessage] = useState(null)
   const mobileToggleRef = useRef(null)
   const sidebarRef = useRef(null)
+
 
   useEffect(() => {
     if (!isMobileMenuOpen) return
@@ -704,8 +708,48 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
           </div>
         )}
 
+        {/* ══ EDIT FULL INSPECTION FORM (ADMIN FULL ACCESS) ══ */}
+        {editingJobForm && (
+          <div style={{ background: '#fff', padding: 20, borderRadius: 16, border: '1.5px solid var(--primary-300)', marginBottom: 24, boxShadow: '0 4px 14px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--gray-200)', flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--primary-700)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  ✏️ Edit Submitted Property Case Details — {editingJobForm.customer}
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: 'var(--gray-500)' }}>
+                  Admin Full Access: Modify any inspection answers, photos, boundary measurements, land values, or remarks before exporting.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setEditingJobForm(null)}
+                style={{ fontWeight: 600 }}
+              >
+                ✕ Close Form Editor
+              </button>
+            </div>
+            <PropertyCaseForm
+              job={editingJobForm}
+              onSubmit={async (payload) => {
+                try {
+                  await onSubmitJob(editingJobForm.id, payload)
+                  showMsg('Property inspection details updated successfully ✓')
+                  setEditingJobForm(null)
+                  onRefresh()
+                } catch (err) {
+                  showMsg(err.message, 'error')
+                }
+              }}
+              onBack={() => setEditingJobForm(null)}
+              onGenerateReport={onGenerateReport}
+            />
+          </div>
+        )}
+
         {/* ══ OVERVIEW ══ */}
         {activeSection === 'overview' && (
+
 
           <div>
             <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -1157,9 +1201,11 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                     {job.sitePhotos?.length > 0 && <div className="job-meta-item" style={{ color: 'var(--green-600)', fontWeight: 600 }}>📷 {job.sitePhotos.length} photo(s)</div>}
                   </div>
                   <div className="job-card-actions">
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => { setEditingJobForm(job); window.scrollTo({ top: 120, behavior: 'smooth' }) }}>✏️ View & Edit Form</button>
                     <button type="button" className="secondary-btn" onClick={() => fillFromJob(job)}>Use for Report</button>
                     <button type="button" className="secondary-btn danger-btn" onClick={async () => { if (window.confirm('Delete this task?')) { await onDeleteJob(job.id); showMsg('Task deleted') } }}>Delete</button>
                   </div>
+
                 </div>
               ))}
             </div>
@@ -1244,10 +1290,12 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                     <div style={{ marginTop: 12 }}>
                       <input className="form-input" placeholder="Verification remarks (optional)..." value={verifyRemarks[job.id] || ''} onChange={(e) => setVerifyRemarks((p) => ({ ...p, [job.id]: e.target.value }))} style={{ marginBottom: 10 }} />
                       <div className="btn-group">
+                        <button type="button" className="btn btn-primary btn-sm" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => { setEditingJobForm(job); window.scrollTo({ top: 120, behavior: 'smooth' }) }}>✏️ View & Edit Form</button>
                         <button type="button" className="btn btn-success btn-sm" onClick={() => handleVerify(job.id, true)}>✓ Verify</button>
                         <button type="button" className="btn btn-danger btn-sm" onClick={() => handleVerify(job.id, false)}>↩ Needs Correction</button>
                         <button type="button" className="secondary-btn" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => fillFromJob(job)}>Use for Report</button>
                       </div>
+
                     </div>
                   </div>
                 ))}
@@ -1344,12 +1392,20 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                         <div className="job-card-actions">
                           <button
                             type="button"
+                            className="secondary-btn btn-sm"
+                            onClick={() => { setEditingJobForm(job); window.scrollTo({ top: 120, behavior: 'smooth' }) }}
+                          >
+                            ✏️ View & Edit Details
+                          </button>
+                          <button
+                            type="button"
                             className="btn btn-primary btn-sm"
                             onClick={() => onGenerateReport(job.id, { applicantName: job.customer, branchName: job.branch, caseRefNo: job.id, sitePhotos: job.sitePhotos || [] })}
                           >
                             📊 Export Excel Report
                           </button>
                         </div>
+
                       </div>
                     )
                   })

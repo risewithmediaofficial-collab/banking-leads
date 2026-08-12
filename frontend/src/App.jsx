@@ -187,12 +187,14 @@ function App() {
           onDeleteEmployee={handleDeleteEmployee}
           onCreateTask={handleCreateTask}
           onAssignLead={handleAssignLead}
+          onSubmitJob={handleSubmitJob}
           onDeleteJob={handleDeleteJob}
           onVerifyJob={handleVerifyJob}
           onGenerateReport={handleGenerateReport}
           onGenerateBilling={handleGenerateBilling}
           onSubmitVendorBill={handleSubmitVendorBill}
         />
+
       ) : (
         <FieldDashboard
           user={user}

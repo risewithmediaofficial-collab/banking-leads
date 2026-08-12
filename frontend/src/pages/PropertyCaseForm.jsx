@@ -27,12 +27,14 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
       try { return JSON.parse(draft).formData } catch {}
     }
     const init = initFormData(template)
+    const existing = job?.visitDetails || {}
     return {
       ...init,
-      applicantName: job?.customer || '',
-      branchName: job?.branch || '',
-      siteAddress: job?.location || '',
-      valuerName: 'Er. V. Ramesh Babu B.E.,(Civil)',
+      ...existing,
+      applicantName: existing.applicantName || job?.customer || '',
+      branchName: existing.branchName || job?.branch || '',
+      siteAddress: existing.siteAddress || job?.location || '',
+      valuerName: existing.valuerName || 'Er. V. Ramesh Babu B.E.,(Civil)',
     }
   })
 
@@ -41,6 +43,7 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
     if (draft) {
       try { return JSON.parse(draft).dynamicTables } catch {}
     }
+    if (job?.visitDetails?.dynamicTables) return job.visitDetails.dynamicTables
     return initDynamicTables(template)
   })
 
@@ -49,6 +52,8 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
     if (draft) {
       try { return JSON.parse(draft).photos } catch {}
     }
+    if (job?.visitDetails?.photos && job.visitDetails.photos.length > 0) return job.visitDetails.photos
+    if (job?.visitDetails?.sitePhotos && job.visitDetails.sitePhotos.length > 0) return job.visitDetails.sitePhotos
     return job?.sitePhotos || []
   })
 
@@ -57,15 +62,55 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
     if (draft) {
       try { return JSON.parse(draft).documents } catch {}
     }
+    if (job?.visitDetails?.documents && job.visitDetails.documents.length > 0) return job.visitDetails.documents
     return job?.documents || []
   })
 
-  const [gps, setGps] = useState({ latitude: '', longitude: '', accuracy: '', gpsTimestamp: '' })
+  const [gps, setGps] = useState(() => {
+    const existing = job?.visitDetails || {}
+    return {
+      latitude: existing.latitude || job?.latitude || '',
+      longitude: existing.longitude || job?.longitude || '',
+      accuracy: existing.accuracy || '',
+      gpsTimestamp: existing.gpsTimestamp || '',
+    }
+  })
+
   const [declaration, setDeclaration] = useState(true)
   const [validationErrors, setValidationErrors] = useState([])
   const [message, setMessage] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [activeSectionId, setActiveSectionId] = useState('')
+
+  useEffect(() => {
+    if (!job) return
+    const existing = job.visitDetails || {}
+    const init = initFormData(template)
+    setFormData((prev) => ({
+      ...init,
+      ...existing,
+      ...prev,
+      applicantName: existing.applicantName || job.customer || prev.applicantName || '',
+      branchName: existing.branchName || job.branch || prev.branchName || '',
+      siteAddress: existing.siteAddress || job.location || prev.siteAddress || '',
+      valuerName: existing.valuerName || 'Er. V. Ramesh Babu B.E.,(Civil)',
+    }))
+    if (existing.dynamicTables) setDynamicTables(existing.dynamicTables)
+    if (existing.photos || existing.sitePhotos || job.sitePhotos) {
+      setPhotos(existing.photos || existing.sitePhotos || job.sitePhotos || [])
+    }
+    if (existing.documents || job.documents) {
+      setDocuments(existing.documents || job.documents || [])
+    }
+    if (existing.latitude || existing.longitude) {
+      setGps({
+        latitude: existing.latitude || '',
+        longitude: existing.longitude || '',
+        accuracy: existing.accuracy || '',
+        gpsTimestamp: existing.gpsTimestamp || '',
+      })
+    }
+  }, [job?.id])
 
   // Compute calculated fields
   const { computed, updatedTables } = useMemo(
@@ -76,6 +121,7 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
   useEffect(() => {
     setDynamicTables((prev) => ({ ...prev, ...updatedTables }))
   }, [JSON.stringify(updatedTables)])
+
 
   // Auto-save draft
   useEffect(() => {
