@@ -12,7 +12,14 @@ import {
 import './App.css'
 
 function App() {
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('banking_app_user')
+      return saved ? JSON.parse(saved) : null
+    } catch (e) {
+      return null
+    }
+  })
   const [dashboardData, setDashboardData] = useState(null)
   const [banks, setBanks] = useState([])
   const [leads, setLeads] = useState([])
@@ -55,11 +62,17 @@ function App() {
   const handleLogin = async (credentials) => {
     const result = await loginUser(credentials)
     setUser(result.user)
+    try {
+      localStorage.setItem('banking_app_user', JSON.stringify(result.user))
+    } catch (e) {}
     refresh()
   }
 
   const handleLogout = () => {
     setUser(null)
+    try {
+      localStorage.removeItem('banking_app_user')
+    } catch (e) {}
     setDashboardData(null)
     setBanks([])
     setLeads([])
@@ -67,6 +80,7 @@ function App() {
     setUsers([])
     setBankTemplates([])
   }
+
 
   const handleCreateLead = async (payload) => { await createLead(payload); refresh() }
   const handleUpdateLead = async (leadId, payload) => { await updateLead(leadId, payload); refresh() }

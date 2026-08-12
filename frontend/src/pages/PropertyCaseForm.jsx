@@ -99,6 +99,247 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
     setTimeout(() => setMessage(null), 4000)
   }
 
+  const handleFillSampleData = () => {
+    const sample = {
+      refNo: `REF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      reportDate: new Date().toISOString().split('T')[0],
+      dateOfInspection: new Date().toISOString().split('T')[0],
+      caseType: 'Home Loan',
+      purposeOfValuation: 'Home Loan',
+      valuerName: 'Er. V. Ramesh Babu B.E.,(Civil)',
+      valuerContact: '9874563210',
+      branchName: job?.branch || 'Hosur',
+      contactedPerson: job?.customer || 'Suresh Kumar',
+      contactPersonMobile: '9842109842',
+      place: job?.branch || 'Hosur Town',
+      distanceFromCity: '3.5 km',
+      nearestLandmark: 'Opposite Govt Higher Secondary School',
+
+      applicantName: job?.customer || 'K. Madhusudhanan',
+      coApplicantName: 'M. Priyadarshini',
+      customerId: 'CUST-884920',
+      clientId: 'CL-9921',
+      applicantContact: '9845123456',
+      ownerName: job?.customer || 'K. Madhusudhanan',
+      propertyOwnerName: job?.customer || 'K. Madhusudhanan',
+      ownerContact: '9845123456',
+      relationshipWithApplicant: 'Self',
+      vipCategory: false,
+      customerCategory: 'Normal',
+
+      propertyType: 'Residential',
+      propertySubType: 'Independent House (G+1)',
+      currentUsage: 'Residential Occupied',
+      permittedUsage: 'Residential',
+      approvedUsage: 'Residential',
+      surveyNumber: 'S.No. 452/3B',
+      oldSurveyNumber: 'S.No. 452/3',
+      newSurveyNumber: 'S.No. 452/3B1',
+      plotNumber: 'Plot No. 24',
+      doorNumber: 'D.No. 12/4',
+      propertyNumber: 'House No. 12/4-A',
+      village: 'Avalapalli',
+      panchayat: 'Avalapalli Panchayat',
+      union: 'Hosur Union',
+      taluk: 'Hosur',
+      district: 'Krishnagiri',
+      state: 'Tamil Nadu',
+      pincode: '635109',
+      jurisdiction: 'Hosur City Municipal Corporation',
+      zonalClassification: 'Residential Zone',
+      identificationMethod: 'Boundaries verified with sale deed',
+      propertyIdentified: true,
+      propertyDemarcated: true,
+
+      docAddrDoorNo: 'Plot No. 24, D.No. 12/4',
+      docAddrSurveyNo: 'S.No. 452/3B',
+      docAddrStreet: 'Sri Kamatchi Nagar 2nd Cross',
+      docAddrVillage: 'Avalapalli Village',
+      docAddrTaluk: 'Hosur Taluk',
+      docAddrDistrict: 'Krishnagiri District',
+      docAddrState: 'Tamil Nadu',
+      docAddrPincode: '635109',
+      documentAddress: 'Plot No. 24, D.No. 12/4, Sri Kamatchi Nagar 2nd Cross, Avalapalli, Hosur Taluk, Krishnagiri - 635109',
+
+      siteAddrSameAsDoc: true,
+      siteAddrDoorNo: 'Plot No. 24, D.No. 12/4',
+      siteAddrSurveyNo: 'S.No. 452/3B',
+      siteAddrStreet: 'Sri Kamatchi Nagar 2nd Cross',
+      siteAddrVillage: 'Avalapalli Village',
+      siteAddrTaluk: 'Hosur Taluk',
+      siteAddrDistrict: 'Krishnagiri District',
+      siteAddrState: 'Tamil Nadu',
+      siteAddrPincode: '635109',
+      siteAddress: 'Plot No. 24, D.No. 12/4, Sri Kamatchi Nagar 2nd Cross, Avalapalli, Hosur Taluk, Krishnagiri - 635109',
+
+      roadName: 'Sri Kamatchi Nagar Main Road',
+      accessRoadType: 'Panchayat Road',
+      approachRoadCondition: 'Good',
+      approachRoadWidth: '30 Feet BT Road',
+      roadWidth: '30 Feet Tar Road',
+      accessDetails: 'Direct access from 30ft wide tar road connecting Rayakottai Road',
+      distanceFromBranch: '4.2',
+      railwayStation: 'Hosur Railway Station',
+      railwayStationDistance: '5.0 km',
+      busStop: 'Avalapalli Bus Stop',
+      busStopDistance: '0.8 km',
+      nearbyAmenities: 'Schools, Hospitals, Supermarkets, ATMs within 1.5 km radius',
+      publicTransport: 'Available',
+      surroundingLocality: 'Fully developed residential colony with independent villas',
+
+      classOfLocality: 'Middle Class',
+      siteDevelopment: 'Developed',
+      marketability: 'Good',
+      surroundingHabitation: '85',
+      surroundingDevelopment: '85% developed with residential dwellings',
+      localityDescription: 'Peaceful residential locality with good asphalt roads and groundwater',
+      proximityToAmenities: 'Schools (500m), Hospital (1.2km), Market (800m)',
+
+      plotShape: 'Rectangular',
+      siteAreaDoc: '1800 Sq.Ft',
+      siteAreaPatta: '1800 Sq.Ft',
+      siteAreaPlan: '1800 Sq.Ft',
+      siteAreaActual: '1800',
+      plotArea: '1800',
+      landArea: '1800',
+      udsArea: '1800',
+      areaUnit: 'Sq.Ft',
+      areaForValuation: '1800',
+      lengthDimension: '60 Feet',
+      widthDimension: '30 Feet',
+      northDimension: '30 Feet',
+      southDimension: '30 Feet',
+      eastDimension: '60 Feet',
+      westDimension: '60 Feet',
+
+      northBoundaryDoc: '30 Feet Wide Road',
+      northBoundarySite: '30 Feet Wide Tar Road',
+      southBoundaryDoc: 'Plot No. 25',
+      southBoundarySite: 'House of Mr. R. Venkatesh',
+      eastBoundaryDoc: 'Plot No. 11',
+      eastBoundarySite: 'Vacant Plot No. 11',
+      westBoundaryDoc: 'Plot No. 23',
+      westBoundarySite: 'House of Mrs. Lakshmi',
+      boundariesMatching: true,
+      boundaryDifferenceRemarks: 'Boundaries matching as per sale deed & physical verification at site.',
+
+      presentOccupancy: 'Self Occupied',
+      occupantName: job?.customer || 'K. Madhusudhanan',
+      occupantRelationship: 'Self',
+      occupancyCurrentUsage: 'Residential Living',
+      usageVerified: true,
+
+      typeOfStructure: 'RCC',
+      typeOfConstruction: 'Framed',
+      foundation: 'Isolated Footing',
+      superStructure: 'Brick Masonry with Cement Mortar',
+      roof: 'RCC Slab',
+      flooring: 'Vitrified',
+      doorsWindows: 'Teak Wood Main Door, UPVC Windows',
+      electricalFittings: 'Good',
+      sanitaryFittings: 'Good',
+      compoundWall: 'Available',
+      liftAvailable: false,
+      numberOfBlocks: '1',
+      numberOfWings: '1',
+      numberOfUnits: '1',
+      numberOfFloorsApproved: '2',
+      numberOfFloorsAsBuilt: '2',
+      floorNumberOfSubject: 'Ground + 1st Floor',
+      numberOfRooms: '6',
+      constructionQuality: 'Good',
+      constructionStage: 'Completed',
+      yearOfConstruction: '2021',
+      ageOfProperty: '3',
+      residualLife: '57',
+      internalComposition: 'GF: Hall, 2 Bedrooms, Kitchen, Dining, 2 Toilets. FF: Hall, 2 Bedrooms, Balcony, 2 Toilets.',
+
+      buildingApprovalAvailable: true,
+      buildingApprovalNumber: 'BA/HMC/2021/0481',
+      buildingApprovalDate: '2021-03-15',
+      planningApproval: true,
+      planningApprovalNumber: 'PA/HNTDA/2021/112',
+      dtcpApproval: 'Yes',
+      hntdaApproval: 'Yes',
+      rera: 'N/A',
+      layoutApproval: 'Yes',
+      sanctionPlanAvailable: true,
+      sanctionPlanVerified: true,
+      constructionAsPerPlan: true,
+      deviationFromPlan: false,
+      ownershipType: 'Free Hold',
+      documentsVerified: true,
+      fsrPermitted: '1.5',
+      fsrActual: '1.25',
+      permissibleBUA: '2700 Sq.Ft',
+      actualBUA: '2250 Sq.Ft',
+
+      electricityAvailable: 'Available',
+      ebConnection: 'Available',
+      ebServiceConnectionNo: '04-128-009-412',
+      waterFacility: 'Available',
+      undergroundDrainage: 'Available',
+      septicTank: 'Available',
+      sump: 'Available',
+      overheadTank: 'Available',
+      borewell: 'Available',
+      roadFacility: 'Available',
+      powerBackup: 'Available',
+
+      presentMarketRate: '2800',
+      averageMarketRate: '2750',
+      maxMarketRate: '3000',
+      minMarketRate: '2500',
+      guidelineValue: '1800',
+      rateUnit: 'Per Sq.Ft',
+      propertyClassification: 'Class A Residential',
+
+      landAreaUnit: 'Sq.Ft',
+      landRate: '2800',
+      landValue: 5040000,
+      udsAreaVal: '1800',
+      udsRate: '2800',
+      udsValue: 5040000,
+      grossConstructionValue: 3600000,
+      depreciationPercent: '5',
+      depreciationAmount: 180000,
+      netConstructionValue: 3420000,
+      amenitiesValue: 200000,
+      otherValue: 100000,
+      totalPropertyValue: 8760000,
+      presentMarketValue: 8760000,
+      realizableValue: 7884000,
+      forcedSaleValue: 6570000,
+      recommendedValue: 8500000,
+      valueInWords: 'Eighty Five Lakh Rupees Only',
+
+      negativeAreaFlag: false,
+      inOGL: false,
+      riskOfDemolition: 'Nil',
+      legalConcern: false,
+      documentConcern: false,
+      boundaryConcern: false,
+      approvalConcern: false,
+
+      observation: 'The property is a clear title residential building located in a well-developed locality of Hosur. Boundaries at site match with title documents. Construction quality is good with RCC framed structure.',
+      remarks: 'Recommended for home loan / mortgage. Property is marketable with good resale value.',
+    }
+
+    const sampleTables = {
+      floorDetails: [
+        { floor: 'Ground Floor', carpetArea: '950', builtUpArea: '1150', grossBuiltUpArea: '1150', superBuiltUpArea: '1250', constructionStatus: 'Completed', usage: 'Residential' },
+        { floor: 'First Floor', carpetArea: '900', builtUpArea: '1100', grossBuiltUpArea: '1100', superBuiltUpArea: '1200', constructionStatus: 'Completed', usage: 'Residential' },
+      ],
+    }
+
+    setFormData((prev) => ({ ...prev, ...sample }))
+    setDynamicTables((prev) => ({ ...prev, ...sampleTables }))
+    setGps({ latitude: '12.7409', longitude: '77.8253', accuracy: '4.2m', gpsTimestamp: new Date().toLocaleString() })
+    setValidationErrors([])
+    setMessage({ text: '⚡ Sample data filled into all form fields! You can now click "Download Report (Excel)" or "Save & Submit Case".', type: 'success' })
+    setTimeout(() => setMessage(null), 6000)
+  }
+
   const handleFormSubmit = async (e) => {
     if (e) e.preventDefault()
     const errors = validateForm(template, computed, dynamicTables, photos, documents)
@@ -132,10 +373,20 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
     if (onGenerateReport) {
       try {
         await onGenerateReport(job.id, {
+          ...formData,
           ...computed,
+          photos,
           sitePhotos: photos,
           documents,
           dynamicTables,
+          gps,
+          latitude: gps?.latitude || computed?.latitude || formData?.latitude || '',
+          longitude: gps?.longitude || computed?.longitude || formData?.longitude || '',
+          accuracy: gps?.accuracy || '',
+          bankCode: job?.bankCode || bankCode || 'UJJ',
+          bank: job?.bank || template?.bankName || 'Ujjivan Small Finance Bank',
+          customer: job?.customer || computed?.applicantName || '',
+          branch: job?.branch || computed?.branchName || '',
         })
         setMessage({ text: 'Report generated and download started!', type: 'success' })
       } catch (err) {
@@ -173,12 +424,15 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
         </div>
 
         <div className="btn-group">
+          <button type="button" className="btn btn-purple" onClick={handleFillSampleData} title="Auto-fill form fields with sample fake data to test export">
+            ⚡ Fill Sample Data
+          </button>
           <button type="button" className="btn btn-secondary" onClick={handleSaveDraft}>
             💾 Save Draft
           </button>
           {onGenerateReport && (
             <button type="button" className="btn btn-success" onClick={handleDownloadReport}>
-              📊 Download Report (Excel)
+              📄 Download Word Report (.docx)
             </button>
           )}
           <button type="button" className="btn btn-primary" onClick={handleFormSubmit} disabled={submitting}>
@@ -390,12 +644,15 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
 
       {/* ─── Bottom Save Action Bar (outside form body, always visible) ─── */}
       <div className="open-form-bottombar">
+        <button type="button" className="btn btn-purple" onClick={handleFillSampleData}>
+          ⚡ Fill Sample Data
+        </button>
         <button type="button" className="btn btn-secondary" onClick={handleSaveDraft}>
           💾 Save Draft
         </button>
         {onGenerateReport && (
           <button type="button" className="btn btn-success btn-lg" onClick={handleDownloadReport}>
-            📊 Generate &amp; Download Excel Report
+            📄 Generate &amp; Download Word Report (.docx)
           </button>
         )}
         <button type="button" className="btn btn-primary btn-lg" disabled={submitting} onClick={handleFormSubmit}>

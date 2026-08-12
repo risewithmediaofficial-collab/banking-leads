@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url'
 import XLSX from 'xlsx'
 import ExcelJS from 'exceljs'
 import multer from 'multer'
+import { generateTechnicalReport as _genReport } from './report_generator.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -323,134 +324,43 @@ async function embedBankLogo(workbook, sheet, bankCode) {
   }
 }
 
+function getPhotoBuffer(photo) {
+  if (!photo) return null
+  const urlStr = photo.url || photo.path || photo.src || (typeof photo === 'string' ? photo : '')
+  if (!urlStr) return null
+
+  // 1. Base64 Data URL
+  if (urlStr.startsWith('data:image/')) {
+    try {
+      const parts = urlStr.split(',')
+      const mimeMatch = parts[0].match(/data:(image\/\w+);base64/)
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg'
+      const ext = mime.includes('png') ? 'png' : 'jpeg'
+      const buffer = Buffer.from(parts[1], 'base64')
+      return { buffer, extension: ext }
+    } catch (e) {
+      console.error('Error parsing base64 image:', e.message)
+      return null
+    }
+  }
+
+  // 2. File System Path
+  try {
+    const cleanUrl = urlStr.replace(/^https?:\/\/[^\/]+/, '').replace(/^\//, '')
+    const photoPath = path.join(__dirname, cleanUrl)
+    if (fs.existsSync(photoPath)) {
+      const ext = photoPath.toLowerCase().endsWith('.png') ? 'png' : 'jpeg'
+      const buffer = fs.readFileSync(photoPath)
+      return { buffer, extension: ext }
+    }
+  } catch (e) {
+    console.error('Error reading photo file:', e.message)
+  }
+  return null
+}
+
 async function generateTechnicalReport(details) {
-  const wbX = XLSX.readFile(reportTemplatePath, { cellDates: true })
-  const wsX = wbX.Sheets[wbX.SheetNames[0]]
-  if (wsX['!merges']) {
-    const seen = new Set()
-    wsX['!merges'] = wsX['!merges'].filter((m) => {
-      const key = `${m.s.r}:${m.s.c}-${m.e.r}:${m.e.c}`
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-  }
-  const xlsxBuf = XLSX.write(wbX, { type: 'buffer', bookType: 'xlsx' })
-  const workbook = new ExcelJS.Workbook()
-  await workbook.xlsx.load(xlsxBuf)
-  const sheet = workbook.worksheets[0]
-
-  const bankCode = String(details.bankCode || 'UJJ').toUpperCase()
-  await embedBankLogo(workbook, sheet, bankCode)
-
-  const refNo = details.refNo || details.nivaraRefNo || details.caseRefNo || `REF-${Date.now().toString().slice(-6)}`
-  const reportDate = details.reportDate || new Date().toLocaleDateString('en-GB')
-  const branchName = details.branchName || details.branch || ''
-  const caseType = details.caseType || details.loanType || 'LAP'
-  const valuerName = details.valuerName || 'Er. V. Ramesh Babu B.E.,(Civil)'
-  const contactedPerson = details.contactedPerson || details.applicantName || details.customer || ''
-  const applicantName = details.applicantName || details.customer || ''
-  const ownerName = details.ownerName || details.propertyOwnerName || applicantName
-  const propType = details.propertyType || 'Residential'
-  const currentUsage = details.currentUsage || 'Residential'
-  const siteAddr = details.siteAddress || details.location || ''
-  const docAddr = details.documentAddress || siteAddr
-  const landmark = details.nearestLandmark || details.landmark || ''
-  const distBranch = details.distanceFromBranch || ''
-  const occupancy = details.presentOccupancy || details.occupancy || 'Self Occupied'
-  const occupantName = details.occupantName || applicantName
-  const occupantRel = details.occupantRelationship || details.relationshipWithApplicant || 'Self'
-  const identMethod = details.identificationMethod || 'Property Documents & Site Inspection'
-  const plotArea = details.plotArea || details.areaForValuation || details.siteAreaActual || ''
-  const floors = details.numberOfFloorsAsBuilt || details.floors || '1'
-  const rooms = details.numberOfRooms || details.rooms || ''
-  const carpetArea = details.totalCarpetArea || details.carpetArea || ''
-  const builtUpArea = details.totalBuiltUpArea || details.builtUpArea || ''
-  const age = details.ageOfProperty || details.propertyAge || ''
-  const residual = details.residualLife || ''
-  const docsVerified = details.documentsVerified === true || details.documentsVerified === 'true' ? 'Yes' : 'No'
-  const totalVal = Number(details.totalPropertyValue || details.presentMarketValue || details.totalValue || 0)
-  const valWords = details.valueInWords || totalToWords(totalVal)
-
-  const nBound = details.northBoundarySite || details.northBoundaryDoc || details.northBoundary || ''
-  const sBound = details.southBoundarySite || details.southBoundaryDoc || details.southBoundary || ''
-  const eBound = details.eastBoundarySite || details.eastBoundaryDoc || details.eastBoundary || ''
-  const wBound = details.westBoundarySite || details.westBoundaryDoc || details.westBoundary || ''
-  const boundsMatch = (details.boundariesMatching === true || details.boundariesMatching === 'true' || details.boundariesMatching === 'Matching') ? 'Matching' : 'Not Matching'
-  const observation = details.valuerRemarks || details.technicalRemarks || details.observation || 'Property inspected and found in good condition.'
-  const isNegative = details.negativeAreaFlag ? 'Yes' : 'No'
-  const lat = details.latitude || details.gps?.latitude || ''
-  const lng = details.longitude || details.gps?.longitude || ''
-
-  setExcelCell(sheet, 'E20', refNo)
-  setExcelCell(sheet, 'K20', reportDate)
-  setExcelCell(sheet, 'E21', branchName)
-  setExcelCell(sheet, 'K21', caseType)
-  setExcelCell(sheet, 'E22', valuerName)
-  setExcelCell(sheet, 'E23', refNo)
-  setExcelCell(sheet, 'E24', contactedPerson)
-  setExcelCell(sheet, 'E26', applicantName)
-  setExcelCell(sheet, 'E27', ownerName)
-  setExcelCell(sheet, 'E28', propType)
-  setExcelCell(sheet, 'K28', currentUsage)
-  setExcelCell(sheet, 'E29', siteAddr)
-  setExcelCell(sheet, 'E30', docAddr)
-  setExcelCell(sheet, 'E40', landmark)
-  setExcelCell(sheet, 'E41', distBranch)
-  setExcelCell(sheet, 'H44', occupancy)
-  setExcelCell(sheet, 'H45', occupantName)
-  setExcelCell(sheet, 'H46', occupantRel)
-  setExcelCell(sheet, 'H48', identMethod)
-  setExcelCell(sheet, 'H50', plotArea)
-  setExcelCell(sheet, 'H54', floors)
-  setExcelCell(sheet, 'H57', rooms)
-  setExcelCell(sheet, 'H58', carpetArea)
-  setExcelCell(sheet, 'H59', builtUpArea)
-  setExcelCell(sheet, 'E74', age)
-  setExcelCell(sheet, 'K74', residual)
-  setExcelCell(sheet, 'E80', docsVerified)
-  setExcelCell(sheet, 'H110', 'Rs.')
-  setExcelCell(sheet, 'I110', totalVal || '')
-  setExcelCell(sheet, 'H112', valWords)
-  setExcelCell(sheet, 'D123', nBound)
-  setExcelCell(sheet, 'F123', sBound)
-  setExcelCell(sheet, 'H123', eBound)
-  setExcelCell(sheet, 'K123', wBound)
-  setExcelCell(sheet, 'D124', boundsMatch)
-  setExcelCell(sheet, 'H140', observation)
-  setExcelCell(sheet, 'H141', isNegative)
-  setExcelCell(sheet, 'E145', lat)
-  setExcelCell(sheet, 'K145', lng)
-
-  const allPhotos = Array.isArray(details.photos) ? details.photos : (Array.isArray(details.sitePhotos) ? details.sitePhotos : [])
-  if (allPhotos.length > 0) {
-    let photoRow = 150
-    sheet.getCell(`B${photoRow - 1}`).value = 'PROPERTY SITE VISIT PHOTOS & ELEVATIONS:'
-    sheet.getCell(`B${photoRow - 1}`).font = { name: 'Arial', size: 11, bold: true }
-    allPhotos.forEach((photo, idx) => {
-      const relativePath = (photo.url || '').replace(/^\//, '')
-      const photoPath = path.join(__dirname, relativePath)
-      if (fs.existsSync(photoPath)) {
-        try {
-          const ext = photoPath.toLowerCase().endsWith('.png') ? 'png' : 'jpeg'
-          const imgId = workbook.addImage({ filename: photoPath, extension: ext })
-          sheet.getCell(`B${photoRow}`).value = `Photo ${idx + 1}: ${photo.caption || photo.category || photo.name || 'Property View'}`
-          sheet.addImage(imgId, {
-            tl: { col: 1, row: photoRow },
-            ext: { width: 320, height: 220 },
-          })
-          photoRow += 14
-        } catch (err) {
-          console.error('Error embedding site photo:', err.message)
-        }
-      }
-    })
-  }
-
-  const fileName = `${safeFilePart(applicantName)}-technical-report.xlsx`
-  const filePath = path.join(generatedDir, fileName)
-  await workbook.xlsx.writeFile(filePath)
-  return `/generated/${fileName}`
+  return _genReport(details, generatedDir, reportTemplatePath)
 }
 
 app.post('/api/upload', upload.array('photos', 10), (req, res) => {

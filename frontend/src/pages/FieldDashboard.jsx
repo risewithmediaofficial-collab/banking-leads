@@ -196,12 +196,51 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
   // ─── Property Case Form Mode ───
   if (mode === 'form' && selectedJob) {
     return (
-      <div className="page-grid">
+      <div className="page-grid" style={{ gap: 16 }}>
+        {/* Breadcrumb & Back Bar */}
+        <div className="breadcrumb-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ffffff', padding: '10px 16px', borderRadius: 8, border: '1px solid var(--gray-200)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.86rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setMode('list')}
+              style={{ background: 'none', border: 'none', color: 'var(--primary-600)', cursor: 'pointer', padding: 0, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            >
+              🏠 My Tasks
+            </button>
+            <span style={{ color: 'var(--gray-400)' }}>/</span>
+            <span style={{ color: 'var(--gray-800)', fontWeight: 700 }}>
+              Property Case Form — {selectedJob.customer || 'Customer'} ({selectedJob.bank || 'Bank'})
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => setMode('list')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 14px',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              borderRadius: 6,
+              cursor: 'pointer',
+              background: 'var(--gray-100)',
+              border: '1px solid var(--gray-300)',
+              color: 'var(--gray-700)'
+            }}
+          >
+            ← Back to Task List
+          </button>
+        </div>
+
         <PropertyCaseForm
           job={selectedJob}
           onSubmit={handleSubmit}
           onSaveDraft={(draft) => showMsg('Draft saved')}
           onBack={() => setMode('list')}
+          onGenerateReport={onGenerateReport}
         />
       </div>
     )
@@ -215,7 +254,14 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
     <div className="field-layout">
       {/* Left: Task List Panel */}
       <div className="field-task-panel">
+        {/* Breadcrumb Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--gray-500)', marginBottom: 12 }}>
+          <span>🏠 Field Dashboard</span>
+          <span>/</span>
+          <span style={{ fontWeight: 700, color: 'var(--gray-800)' }}>My Tasks</span>
+        </div>
         <div className="page-header" style={{ marginBottom: 16 }}>
+
           <h2 style={{ fontSize: '1.1rem' }}>My Tasks</h2>
           <p style={{ fontSize: '0.82rem', color: 'var(--gray-500)' }}>{user.name}</p>
         </div>

@@ -30,6 +30,17 @@ const reportDefaults = { refNo: '', reportDate: new Date().toLocaleDateString('e
 
 const emptyLeadForm = { customer: '', customerPhone: '', bankCode: 'UJJ', branch: '', location: '', loanType: 'LAP', bankRefNo: '', receivedDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), priority: 'Normal', notes: '', employeeId: '' }
 
+const SECTION_NAMES = {
+  overview: 'Dashboard',
+  leads: 'Bank Leads',
+  tasks: 'All Tasks',
+  verify: 'Verify Work',
+  report: 'Technical Reports',
+  billing: 'Vendor Billing',
+  employees: 'Employees',
+  banks: 'Banks',
+}
+
 const STATUS_COLOR = { NEW: 'badge-blue', ASSIGNED: 'badge-amber', VISIT_STARTED: 'badge-amber', VISITED_SITE: 'badge-purple', DETAILS_UPDATED: 'badge-purple', SUBMITTED_FOR_VERIFICATION: 'badge-blue', VERIFIED: 'badge-green', REVISION_REQUIRED: 'badge-red', COMPLETED: 'badge-green' }
 
 const parseDateToTimestamp = (dateVal) => {
@@ -587,7 +598,105 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
       </aside>
 
       {/* ─── Main Content ─── */}
+
       <main className="admin-main">
+        {/* ─── Breadcrumbs & Screen Back Button Bar ─── */}
+        <div className="breadcrumb-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, background: '#ffffff', padding: '10px 16px', borderRadius: 8, border: '1px solid var(--gray-200)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.86rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSection('overview')
+                setShowLeadModal(false)
+                setShowAddTask(false)
+                setSelectedJobId('')
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--primary-600)', cursor: 'pointer', padding: 0, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            >
+              🏠 Dashboard
+            </button>
+
+            {activeSection !== 'overview' && (
+              <>
+                <span style={{ color: 'var(--gray-400)' }}>/</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLeadModal(false)
+                    setShowAddTask(false)
+                    setSelectedJobId('')
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: (showLeadModal || showAddTask || selectedJobId) ? 'var(--primary-600)' : 'var(--gray-800)',
+                    cursor: (showLeadModal || showAddTask || selectedJobId) ? 'pointer' : 'default',
+                    padding: 0,
+                    fontWeight: (showLeadModal || showAddTask || selectedJobId) ? 500 : 700
+                  }}
+                >
+                  {SECTION_NAMES[activeSection] || activeSection}
+                </button>
+              </>
+            )}
+
+            {showLeadModal && (
+              <>
+                <span style={{ color: 'var(--gray-400)' }}>/</span>
+                <span style={{ color: 'var(--gray-800)', fontWeight: 700 }}>
+                  {editingLeadId ? 'Edit Lead' : 'Add New Lead'}
+                </span>
+              </>
+            )}
+
+            {showAddTask && (
+              <>
+                <span style={{ color: 'var(--gray-400)' }}>/</span>
+                <span style={{ color: 'var(--gray-800)', fontWeight: 700 }}>Add New Task</span>
+              </>
+            )}
+
+            {selectedJobId && activeSection === 'verify' && (
+              <>
+                <span style={{ color: 'var(--gray-400)' }}>/</span>
+                <span style={{ color: 'var(--gray-800)', fontWeight: 700 }}>Verify Task</span>
+              </>
+            )}
+          </div>
+
+          {/* Screen Back Button */}
+          {(activeSection !== 'overview' || showLeadModal || showAddTask || selectedJobId) && (
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => {
+                if (showLeadModal || showAddTask || selectedJobId) {
+                  setShowLeadModal(false)
+                  setShowAddTask(false)
+                  setSelectedJobId('')
+                } else if (activeSection !== 'overview') {
+                  setActiveSection('overview')
+                }
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 14px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                borderRadius: 6,
+                cursor: 'pointer',
+                background: 'var(--gray-100)',
+                border: '1px solid var(--gray-300)',
+                color: 'var(--gray-700)'
+              }}
+            >
+              <ChevronLeft size={16} /> Back to Dashboard
+            </button>
+          )}
+        </div>
+
         {message && (
           <div className={`notice notice-${message.type}`} style={{ marginBottom: 20 }}>
             {message.text}
@@ -597,6 +706,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
 
         {/* ══ OVERVIEW ══ */}
         {activeSection === 'overview' && (
+
           <div>
             <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
@@ -786,9 +896,30 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                           <input className="form-input" value={leadForm.notes} onChange={(e) => setLeadForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Any additional notes..." />
                         </div>
                       </div>
-                      <div className="btn-group" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
-                        <button type="button" className="btn btn-secondary" onClick={() => setShowLeadModal(false)}>Cancel</button>
-                        <button type="submit" className="btn btn-primary">{editingLeadId ? 'Update Lead' : '💾 Save Lead'}</button>
+                      <div className="btn-group" style={{ justifyContent: 'space-between', marginTop: 14, flexWrap: 'wrap', gap: 8 }}>
+                        <button
+                          type="button"
+                          className="btn btn-purple"
+                          onClick={() => setLeadForm({
+                            bankCode: 'UJJ',
+                            customer: 'K. Madhusudhanan',
+                            customerPhone: '9845123456',
+                            branch: 'Hosur Branch',
+                            location: 'Plot 24, Sri Kamatchi Nagar, Avalapalli, Hosur',
+                            loanType: 'HL',
+                            bankRefNo: `APP-${Math.floor(100000 + Math.random() * 900000)}`,
+                            receivedDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'),
+                            priority: 'Normal',
+                            notes: 'Sample lead for testing Excel reports & exports',
+                            employeeId: '',
+                          })}
+                        >
+                          ⚡ Fill Sample Lead
+                        </button>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button type="button" className="btn btn-secondary" onClick={() => setShowLeadModal(false)}>Cancel</button>
+                          <button type="submit" className="btn btn-primary">{editingLeadId ? 'Update Lead' : '💾 Save Lead'}</button>
+                        </div>
                       </div>
                     </form>
                   </div>
