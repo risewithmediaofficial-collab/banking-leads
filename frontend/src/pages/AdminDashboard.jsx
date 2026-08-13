@@ -879,7 +879,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                   type="button"
                   className="btn btn-success"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                  onClick={() => { setEditingLeadId(''); setLeadForm(emptyLeadForm); setShowLeadModal(true) }}
+                  onClick={() => { setEditingLeadId(''); setLeadForm(emptyLeadForm); setActiveSection('lead-form') }}
                 >
                   <Plus size={18} /> + Add New Lead
                 </button>
