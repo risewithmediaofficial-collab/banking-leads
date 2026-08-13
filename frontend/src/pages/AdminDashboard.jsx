@@ -1444,6 +1444,22 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                           >
                             📊 Export Excel Report
                           </button>
+                          <button
+                            type="button"
+                            className="secondary-btn danger-btn btn-sm"
+                            onClick={async () => {
+                              if (window.confirm(`Are you sure you want to delete technical report for "${job.customer}"?`)) {
+                                try {
+                                  await onDeleteJob(job.id)
+                                  showMsg('Technical report deleted successfully!')
+                                } catch (err) {
+                                  showMsg(err.message, 'error')
+                                }
+                              }
+                            }}
+                          >
+                            🗑️ Delete Report
+                          </button>
                         </div>
 
                       </div>
@@ -1481,6 +1497,26 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                   onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false); setEditingJobForm(viewingReportJob); window.scrollTo({ top: 120, behavior: 'smooth' }) }}
                 >
                   ✏️ Edit Full Inspection Form
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn danger-btn"
+                  style={{ fontSize: '0.85rem', padding: '8px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  onClick={async () => {
+                    if (window.confirm(`Are you sure you want to delete technical report for "${viewingReportJob.customer}"?`)) {
+                      try {
+                        await onDeleteJob(viewingReportJob.id)
+                        showMsg('Technical report deleted successfully!')
+                        setViewingReportJob(null)
+                        setIsEditingReportModal(false)
+                        setActiveSection('report')
+                      } catch (err) {
+                        showMsg(err.message, 'error')
+                      }
+                    }
+                  }}
+                >
+                  🗑️ Delete Report
                 </button>
                 <button
                   type="button"
@@ -1747,6 +1783,26 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                   onClick={() => onGenerateReport(viewingReportJob.id, { applicantName: viewingReportJob.customer, branchName: viewingReportJob.branch, caseRefNo: viewingReportJob.id, sitePhotos: viewingReportJob.sitePhotos || [] })}
                 >
                   📊 Export Excel Report
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn danger-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  onClick={async () => {
+                    if (window.confirm(`Are you sure you want to delete technical report for "${viewingReportJob.customer}"?`)) {
+                      try {
+                        await onDeleteJob(viewingReportJob.id)
+                        showMsg('Technical report deleted successfully!')
+                        setViewingReportJob(null)
+                        setIsEditingReportModal(false)
+                        setActiveSection('report')
+                      } catch (err) {
+                        showMsg(err.message, 'error')
+                      }
+                    }
+                  }}
+                >
+                  🗑️ Delete Report
                 </button>
                 <button
                   type="button"
