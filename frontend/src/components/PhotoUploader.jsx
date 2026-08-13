@@ -135,7 +135,7 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
             return (
               <div key={photo.url || idx} className="photo-preview-card">
                 <img
-                  src={mediaUrl(photo.url)}
+                  src={mediaUrl(photo)}
                   alt={photo.caption || 'Site photo'}
                   onError={handleImageError}
                   onClick={() => setSelectedPhoto(photo)}
@@ -181,7 +181,7 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
         <div className="photo-lightbox" onClick={() => setSelectedPhoto(null)}>
           <div className="photo-lightbox-inner" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="photo-lightbox-close" onClick={() => setSelectedPhoto(null)}>✕</button>
-            <img src={mediaUrl(selectedPhoto.url)} alt={selectedPhoto.caption} onError={handleImageError} />
+            <img src={mediaUrl(selectedPhoto)} alt={selectedPhoto.caption} onError={handleImageError} />
             {selectedPhoto.caption && <p className="photo-lightbox-caption">{selectedPhoto.caption}</p>}
           </div>
         </div>

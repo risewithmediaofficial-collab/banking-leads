@@ -72,8 +72,8 @@ function DocumentManager({ documentCategories, documents, onChange }) {
             <div key={idx} className="document-row">
               <div className="document-row-main">
                 <div className="document-icon">
-                  {doc.url && doc.url.match(/\.(jpg|jpeg|png|gif|heic)/i)
-                    ? <img src={mediaUrl(doc.url)} alt={doc.type} onError={handleImageError} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--gray-200)' }} />
+                  {(doc.previewUrl || (doc.url && doc.url.match(/\.(jpg|jpeg|png|gif|heic)/i)))
+                    ? <img src={mediaUrl(doc)} alt={doc.type} onError={handleImageError} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--gray-200)' }} />
                     : <div style={{ width: 44, height: 44, background: 'var(--brand-50)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>📄</div>
                   }
                 </div>
