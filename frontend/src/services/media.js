@@ -13,16 +13,18 @@
 
 /**
  * Returns a browser-accessible URL for a backend media path.
- * Handles strings, photo objects, and strips legacy localhost:3000 prefixes.
- * @param {string|object} input - File URL string or photo object containing .url/.path
+ * Handles strings, photo objects, filenames, and strips legacy localhost:3000 prefixes.
+ * @param {string|object} input - File URL string or photo object containing .url/.path/.filename
  * @returns {string} - Relative URL safe for both dev and production
  */
 export function mediaUrl(input) {
   if (!input) return ''
-  let path = typeof input === 'string' ? input : (input.url || input.path || input.src || '')
+  let path = typeof input === 'string'
+    ? input
+    : (input.url || input.path || input.src || (input.filename ? `/uploads/${input.filename}` : ''))
   if (!path) return ''
   
-  // If path contains legacy http://localhost:3000 prefix, strip origin to make relative
+  // If path contains legacy http://localhost:3000 or 127.0.0.1 prefix, strip origin to make relative
   if (/^https?:\/\/(localhost|127\.0\.0\.1):[0-9]+/.test(path)) {
     path = path.replace(/^https?:\/\/(localhost|127\.0\.0\.1):[0-9]+/, '')
   }

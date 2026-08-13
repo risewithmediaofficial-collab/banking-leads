@@ -232,12 +232,36 @@ const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname) || '.jpg'
-    cb(null, `site-photo-${Date.now()}-${Math.round(Math.random() * 1e4)}${ext}`)
+    const safeName = (file.originalname || 'photo').replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 30)
+    cb(null, `site-photo-${Date.now()}-${Math.round(Math.random() * 1e4)}-${safeName}${ext.startsWith('.') ? '' : '.'}${ext}`)
   },
 })
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } })
+const upload = multer({
+  storage,
+  limits: { fileSize: 15 * 1024 * 1024 },
+})
 
-app.use('/uploads', express.static(uploadsDir))
+app.use('/uploads', express.static(uploadsDir, { maxAge: '7d', etag: true }))
+
+app.post('/api/upload', (req, res) => {
+  upload.any()(req, res, (err) => {
+    if (err) {
+      console.error('Multer upload error:', err)
+      return res.status(400).json({ success: false, message: err.message || 'File upload failed' })
+    }
+    const files = (req.files || []).map((file) => ({
+      url: `/uploads/${file.filename}`,
+      path: `/uploads/${file.filename}`,
+      src: `/uploads/${file.filename}`,
+      name: file.originalname,
+      filename: file.filename,
+      size: file.size,
+      mimetype: file.mimetype,
+      uploadedAt: new Date(),
+    }))
+    res.json({ success: true, files })
+  })
+})
 
 const jobSchema = new mongoose.Schema({
   leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
