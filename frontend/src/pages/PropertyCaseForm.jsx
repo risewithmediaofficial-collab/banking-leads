@@ -123,11 +123,22 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
   }, [JSON.stringify(updatedTables)])
 
 
-  // Auto-save draft
+  // Auto-save draft on every state change (localStorage keeps data safe)
   useEffect(() => {
     const draft = { formData, dynamicTables, photos, documents, gps, savedAt: Date.now() }
     localStorage.setItem(DRAFT_KEY(job?.id), JSON.stringify(draft))
   }, [formData, dynamicTables, photos, documents, gps])
+
+  // Expose save function to parent via onSaveDraft(draft, saveFn) on mount
+  useEffect(() => {
+    if (onSaveDraft) {
+      // Pass the explicit save fn so parent (Back button) can call it imperatively
+      onSaveDraft(null, () => {
+        const draft = { formData, dynamicTables, photos, documents, gps, savedAt: Date.now() }
+        localStorage.setItem(DRAFT_KEY(job?.id), JSON.stringify(draft))
+      })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateField = (key, value) => {
     let updated = { ...formData, [key]: value }
@@ -140,7 +151,7 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
   const handleSaveDraft = () => {
     const draft = { formData, dynamicTables, photos, documents, gps }
     localStorage.setItem(DRAFT_KEY(job?.id), JSON.stringify(draft))
-    if (onSaveDraft) onSaveDraft(draft)
+    if (onSaveDraft) onSaveDraft(draft, null)
     setMessage({ text: 'Data saved successfully!', type: 'success' })
     setTimeout(() => setMessage(null), 4000)
   }

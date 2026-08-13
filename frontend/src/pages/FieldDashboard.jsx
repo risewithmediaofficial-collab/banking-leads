@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import PropertyCaseForm from './PropertyCaseForm.jsx'
+import { mediaUrl } from '../services/media.js'
 
 const STATUS_FLOW = [
   { key: 'ASSIGNED', label: 'Assigned' },
@@ -46,6 +47,7 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
   const [statusNote, setStatusNote] = useState('')
   const [message, setMessage] = useState(null)
   const [submittingBill, setSubmittingBill] = useState(false)
+  const draftSaverRef = useRef(null) // will hold PropertyCaseForm's save-draft callback
 
   const [fieldSearch, setFieldSearch] = useState('')
   const [fieldFromDate, setFieldFromDate] = useState('')
@@ -195,6 +197,14 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
 
   // ─── Property Case Form Mode ───
   if (mode === 'form' && selectedJob) {
+    const handleBack = () => {
+      // Trigger draft save in PropertyCaseForm before navigating away
+      if (draftSaverRef.current) {
+        draftSaverRef.current()
+      }
+      showMsg('✅ Draft saved! Your progress has been kept. Tap the form again to continue.', 'success')
+      setMode('list')
+    }
     return (
       <div className="page-grid" style={{ gap: 16 }}>
         {/* Breadcrumb & Back Bar */}
@@ -202,7 +212,7 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.86rem', flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => setMode('list')}
+            onClick={handleBack}
               style={{ background: 'none', border: 'none', color: 'var(--primary-600)', cursor: 'pointer', padding: 0, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}
             >
               🏠 My Tasks
@@ -216,7 +226,7 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
           <button
             type="button"
             className="secondary-btn"
-            onClick={() => setMode('list')}
+            onClick={handleBack}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -238,8 +248,12 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
         <PropertyCaseForm
           job={selectedJob}
           onSubmit={handleSubmit}
-          onSaveDraft={(draft) => showMsg('Draft saved')}
-          onBack={() => setMode('list')}
+          onSaveDraft={(draft, saveFn) => {
+            // Store the save function so we can call it from the Back button
+            if (saveFn) draftSaverRef.current = saveFn
+            showMsg('Draft saved')
+          }}
+          onBack={handleBack}
           onGenerateReport={onGenerateReport}
         />
       </div>
@@ -580,7 +594,7 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
                   <div className="photo-preview-grid">
                     {selectedJob.sitePhotos.slice(0, 8).map((photo, idx) => (
                       <div key={idx} className="photo-preview-card">
-                        <img src={`http://localhost:3000${photo.url}`} alt={photo.caption || `Photo ${idx + 1}`} />
+                        <img src={mediaUrl(photo.url)} alt={photo.caption || `Photo ${idx + 1}`} />
                         <div className="photo-preview-label">{photo.caption || photo.category || `Photo ${idx + 1}`}</div>
                       </div>
                     ))}

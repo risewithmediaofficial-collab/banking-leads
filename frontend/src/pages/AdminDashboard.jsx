@@ -22,6 +22,7 @@ import {
   Menu
 } from 'lucide-react'
 import { getBillingSummary } from '../services/api'
+import { mediaUrl } from '../services/media.js'
 import PropertyCaseForm from './PropertyCaseForm.jsx'
 
 
@@ -1281,8 +1282,8 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                         <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--gray-600)', marginBottom: 8 }}>Submitted Property Photos</div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {job.sitePhotos.map((photo, idx) => (
-                            <a key={idx} href={`http://localhost:3000${photo.url}`} target="_blank" rel="noopener noreferrer">
-                              <img src={`http://localhost:3000${photo.url}`} alt={photo.name} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, border: '2px solid var(--gray-200)' }} />
+                            <a key={idx} href={mediaUrl(photo.url)} target="_blank" rel="noopener noreferrer">
+                              <img src={mediaUrl(photo.url)} alt={photo.name} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, border: '2px solid var(--gray-200)' }} />
                             </a>
                           ))}
                         </div>
@@ -1381,7 +1382,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                         {job.sitePhotos?.length > 0 && (
                           <div style={{ display: 'flex', gap: 6, marginBottom: 14, overflowX: 'auto', paddingBottom: 4 }}>
                             {job.sitePhotos.slice(0, 4).map((photo, pIdx) => (
-                              <img key={pIdx} src={`http://localhost:3000${photo.url}`} alt={photo.name} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--gray-200)' }} />
+                              <img key={pIdx} src={mediaUrl(photo.url)} alt={photo.name} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--gray-200)' }} />
                             ))}
                             {job.sitePhotos.length > 4 && (
                               <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--gray-100)', display: 'grid', placeItems: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'var(--gray-600)' }}>
@@ -1675,9 +1676,9 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                           <div style={headerStyle}>📷 Site Photos ({viewingReportJob.sitePhotos.length})</div>
                           <div style={{ padding: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                             {viewingReportJob.sitePhotos.map((photo, pIdx) => (
-                              <a key={pIdx} href={`http://localhost:3000${photo.url}`} target="_blank" rel="noopener noreferrer">
+                              <a key={pIdx} href={mediaUrl(photo.url)} target="_blank" rel="noopener noreferrer">
                                 <img
-                                  src={`http://localhost:3000${photo.url}`}
+                                  src={mediaUrl(photo.url)}
                                   alt={photo.name || `Photo ${pIdx + 1}`}
                                   style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, border: '2px solid #e2e8f0', transition: 'transform 0.15s', cursor: 'pointer' }}
                                   onMouseOver={(e) => e.target.style.transform = 'scale(1.08)'}

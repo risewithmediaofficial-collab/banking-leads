@@ -9,6 +9,7 @@ import {
   getLeads, getUsers, loginUser, submitJob, submitVendorBill, updateBankTemplate, updateJobStatus,
   updateLead, verifyJob,
 } from './services/api.js'
+import { openFileUrl } from './services/media.js'
 import './App.css'
 
 function App() {
@@ -88,7 +89,7 @@ function App() {
 
   const handleExportLeads = async (payload) => {
     const result = await exportLeads(payload)
-    if (result.fileUrl) window.open(`http://localhost:3000${result.fileUrl}`, '_blank')
+    if (result.fileUrl) openFileUrl(result.fileUrl)
     return result
   }
 
@@ -110,13 +111,13 @@ function App() {
 
   const handleGenerateReport = async (jobId, payload) => {
     const result = await generateReport(jobId, payload)
-    if (result.fileUrl) window.open(`http://localhost:3000${result.fileUrl}`, '_blank')
+    if (result.fileUrl) openFileUrl(result.fileUrl)
     return result
   }
 
   const handleGenerateBilling = async (payload) => {
     const result = await generateBilling(payload)
-    if (result.fileUrl) window.open(`http://localhost:3000${result.fileUrl}`, '_blank')
+    if (result.fileUrl) openFileUrl(result.fileUrl)
     return result
   }
 
