@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import PropertyCaseForm from './PropertyCaseForm.jsx'
-import { mediaUrl } from '../services/media.js'
+import { mediaUrl, handleImageError } from '../services/media.js'
 
 const STATUS_FLOW = [
   { key: 'ASSIGNED', label: 'Assigned' },
@@ -594,7 +594,7 @@ function FieldDashboard({ user, jobs, bankTemplates, onSubmit, onSubmitVendorBil
                   <div className="photo-preview-grid">
                     {selectedJob.sitePhotos.slice(0, 8).map((photo, idx) => (
                       <div key={idx} className="photo-preview-card">
-                        <img src={mediaUrl(photo.url)} alt={photo.caption || `Photo ${idx + 1}`} />
+                        <img src={mediaUrl(photo.url)} alt={photo.caption || `Photo ${idx + 1}`} onError={handleImageError} />
                         <div className="photo-preview-label">{photo.caption || photo.category || `Photo ${idx + 1}`}</div>
                       </div>
                     ))}

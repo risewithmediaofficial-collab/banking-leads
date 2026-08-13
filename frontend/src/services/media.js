@@ -1,14 +1,5 @@
 /**
- * media.js — Centralized media URL builder
- *
- * In development (Vite dev server), Vite proxy forwards /uploads/ and /generated/
- * to http://localhost:3000, so relative URLs work fine.
- *
- * In production (Docker + Nginx), Nginx proxies /uploads/ and /generated/
- * directly to the backend container, so relative URLs also work fine.
- *
- * Using absolute `http://localhost:3000/...` breaks in production because the
- * browser on the client machine cannot reach localhost:3000 of the server.
+ * media.js — Centralized media URL builder & image fallback handler
  */
 
 /**
@@ -38,10 +29,25 @@ export function mediaUrl(input) {
 
 /**
  * Opens a backend-generated file URL in a new tab.
- * Works correctly in both dev and production environments.
  * @param {string} path - The server path, e.g. "/generated/report.xlsx"
  */
 export function openFileUrl(path) {
   if (!path) return
   window.open(mediaUrl(path), '_blank')
+}
+
+/**
+ * SVG Data URI Placeholder for broken/missing image URLs (404 fallback)
+ */
+export const FALLBACK_IMAGE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><rect width="120" height="120" fill="%23f1f5f9" rx="10"/><text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" font-size="28">📷</text><text x="50%" y="70%" dominant-baseline="middle" text-anchor="middle" font-size="11" fill="%2364748b" font-family="sans-serif" font-weight="bold">Image Unavailable</text></svg>'
+
+/**
+ * Handles image load errors gracefully by replacing broken source with a styled fallback placeholder.
+ * @param {Event} e - Image onError event
+ */
+export function handleImageError(e) {
+  if (e && e.target) {
+    e.target.onerror = null
+    e.target.src = FALLBACK_IMAGE
+  }
 }

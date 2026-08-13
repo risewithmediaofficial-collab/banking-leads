@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { mediaUrl } from '../services/media.js'
+import { mediaUrl, handleImageError } from '../services/media.js'
 
 /**
  * PhotoUploader — categorized site photos with drag-drop, camera, GPS, preview
@@ -116,6 +116,7 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
                 <img
                   src={mediaUrl(photo.url)}
                   alt={photo.caption || 'Site photo'}
+                  onError={handleImageError}
                   onClick={() => setSelectedPhoto(photo)}
                 />
                 <div style={{ padding: '6px 8px' }}>
@@ -159,7 +160,7 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
         <div className="photo-lightbox" onClick={() => setSelectedPhoto(null)}>
           <div className="photo-lightbox-inner" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="photo-lightbox-close" onClick={() => setSelectedPhoto(null)}>✕</button>
-            <img src={mediaUrl(selectedPhoto.url)} alt={selectedPhoto.caption} />
+            <img src={mediaUrl(selectedPhoto.url)} alt={selectedPhoto.caption} onError={handleImageError} />
             {selectedPhoto.caption && <p className="photo-lightbox-caption">{selectedPhoto.caption}</p>}
           </div>
         </div>
