@@ -223,6 +223,8 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
   const [viewingBillJob, setViewingBillJob] = useState(null)
   const [isEditingModal, setIsEditingModal] = useState(false)
   const [editBillForm, setEditBillForm] = useState({})
+  const [viewingReportJob, setViewingReportJob] = useState(null)
+  const [isEditingReportModal, setIsEditingReportModal] = useState(false)
 
   // Section Filter States
   const [taskSearchQuery, setTaskSearchQuery] = useState('')
@@ -1393,9 +1395,9 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                           <button
                             type="button"
                             className="secondary-btn btn-sm"
-                            onClick={() => { setEditingJobForm(job); window.scrollTo({ top: 120, behavior: 'smooth' }) }}
+                            onClick={() => { setViewingReportJob(job); setIsEditingReportModal(false) }}
                           >
-                            ✏️ View & Edit Details
+                            👁️ View Details
                           </button>
                           <button
                             type="button"
@@ -1410,6 +1412,318 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                     )
                   })
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ══ REPORT VIEW / EDIT MODAL ══ */}
+        {viewingReportJob && (
+          <div className="photo-lightbox" onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false) }}>
+            <div
+              className="card"
+              style={{ width: '100%', maxWidth: 780, margin: 20, maxHeight: '92vh', overflowY: 'auto', borderRadius: 'var(--radius-2xl)', border: '1px solid var(--gray-200)', boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* ── Modal Header ── */}
+              <div style={{ background: 'linear-gradient(135deg, #eef2ff, #f0fdf4)', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--gray-200)', position: 'sticky', top: 0, zIndex: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '1.2rem' }}>📋</div>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#1e1b4b', fontSize: '1.1rem', fontWeight: 800 }}>
+                      {isEditingReportModal ? '✏️ Edit Inspection Details' : '👁️ View Inspection Report'}
+                    </h3>
+                    <div style={{ fontSize: '0.78rem', color: '#4338ca', fontWeight: 600, marginTop: 2 }}>
+                      {viewingReportJob.customer} · {viewingReportJob.bank || viewingReportJob.bankCode} · {viewingReportJob.branch}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {!isEditingReportModal && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ fontSize: '0.8rem', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false); setEditingJobForm(viewingReportJob); window.scrollTo({ top: 120, behavior: 'smooth' }) }}
+                    >
+                      ✏️ Edit Form
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    style={{ background: 'rgba(0,0,0,0.07)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'grid', placeItems: 'center', fontSize: '1.2rem', fontWeight: 800, color: '#374151', cursor: 'pointer' }}
+                    onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false) }}
+                    title="Close"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Modal Body: View Mode ── */}
+              <div style={{ padding: 24, display: 'grid', gap: 20 }}>
+
+                {/* Status & Assignment Row */}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: '#f8fafc', padding: '10px 16px', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                  <span className={`badge ${viewingReportJob.status === 'VERIFIED' ? 'badge-green' : 'badge-blue'}`} style={{ fontSize: '0.78rem' }}>
+                    {viewingReportJob.status?.replace(/_/g, ' ')}
+                  </span>
+                  <span style={{ fontSize: '0.82rem', color: '#475569' }}>👷 <strong>{viewingReportJob.assignedEmployee || '—'}</strong></span>
+                  {viewingReportJob.visitedAt && (
+                    <span style={{ fontSize: '0.82rem', color: '#475569' }}>🗓️ Visited: <strong>{new Date(viewingReportJob.visitedAt).toLocaleDateString('en-IN')}</strong></span>
+                  )}
+                  {viewingReportJob.sitePhotos?.length > 0 && (
+                    <span style={{ fontSize: '0.82rem', color: '#059669', fontWeight: 700 }}>📷 {viewingReportJob.sitePhotos.length} Photos</span>
+                  )}
+                </div>
+
+                {/* ── SECTION RENDERER ── */}
+                {(() => {
+                  const v = viewingReportJob.visitDetails || {}
+                  const sectionStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }
+                  const headerStyle = { background: 'linear-gradient(90deg, #f0f9ff, #e0f2fe)', padding: '10px 16px', fontWeight: 800, fontSize: '0.82rem', color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #bae6fd' }
+                  const gridStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: '#e5e7eb' }
+                  const cellStyle = { background: '#fff', padding: '10px 14px' }
+                  const labelStyle = { fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }
+                  const valStyle = { fontSize: '0.9rem', fontWeight: 600, color: '#1e293b', wordBreak: 'break-word' }
+                  const dash = <span style={{ color: '#cbd5e1' }}>—</span>
+
+                  const Field = ({ label, value, full }) => (
+                    <div style={{ ...cellStyle, gridColumn: full ? '1 / -1' : 'auto' }}>
+                      <div style={labelStyle}>{label}</div>
+                      <div style={valStyle}>{value !== undefined && value !== null && value !== '' ? String(value) : dash}</div>
+                    </div>
+                  )
+
+                  return (
+                    <>
+                      {/* 1. Case & Reference */}
+                      <div style={sectionStyle}>
+                        <div style={headerStyle}>📑 Case & Reference Information</div>
+                        <div style={gridStyle}>
+                          <Field label="Reference No" value={v.refNo || v.caseRefNo} />
+                          <Field label="Report Date" value={v.reportDate || v.dateOfInspection} />
+                          <Field label="Case Type" value={v.caseType || v.purposeOfValuation} />
+                          <Field label="Branch Name" value={v.branchName} />
+                          <Field label="Valuer Name" value={v.valuerName} />
+                          <Field label="Contacted Person" value={v.contactedPerson || v.contactPersonMobile} />
+                        </div>
+                      </div>
+
+                      {/* 2. Applicant */}
+                      <div style={sectionStyle}>
+                        <div style={headerStyle}>👤 Applicant & Owner Details</div>
+                        <div style={gridStyle}>
+                          <Field label="Applicant Name" value={v.applicantName || viewingReportJob.customer} />
+                          <Field label="Co-Applicant" value={v.coApplicantName} />
+                          <Field label="Owner Name" value={v.ownerName || v.propertyOwnerName} />
+                          <Field label="Relationship with Applicant" value={v.relationshipWithApplicant || v.relationship} />
+                          <Field label="Customer ID" value={v.customerId || v.clientId} />
+                          <Field label="Applicant Contact" value={v.applicantContact} />
+                        </div>
+                      </div>
+
+                      {/* 3. Property Details */}
+                      <div style={sectionStyle}>
+                        <div style={headerStyle}>🏠 Property Details</div>
+                        <div style={gridStyle}>
+                          <Field label="Property Type" value={v.propertyType} />
+                          <Field label="Property Sub-Type" value={v.propertySubType} />
+                          <Field label="Current Usage" value={v.currentUsage} />
+                          <Field label="Permitted Usage" value={v.permittedUsage || v.approvedUsage} />
+                          <Field label="Survey Number" value={v.surveyNumber || v.newSurveyNumber} />
+                          <Field label="Plot / Door Number" value={v.plotNumber || v.doorNumber || v.propertyNumber} />
+                          <Field label="Village / Panchayat" value={v.village || v.panchayat} />
+                          <Field label="Taluk" value={v.taluk} />
+                          <Field label="District" value={v.district} />
+                          <Field label="State" value={v.state} />
+                          <Field label="Pincode" value={v.pincode} />
+                          <Field label="Zonal Classification" value={v.zonalClassification} />
+                          <Field label="Site Address" value={v.siteAddress} full />
+                          <Field label="Document Address" value={v.documentAddress} full />
+                          <Field label="Landmark" value={v.nearestLandmark || v.landmark} full />
+                        </div>
+                      </div>
+
+                      {/* 4. Location & Access */}
+                      <div style={sectionStyle}>
+                        <div style={headerStyle}>📍 Location & Access</div>
+                        <div style={gridStyle}>
+                          <Field label="Distance from Branch (km)" value={v.distanceFromBranch} />
+                          <Field label="Distance from City" value={v.distanceFromCity} />
+                          <Field label="Approach Road" value={v.approachRoadWidth || v.roadWidth} />
+                          <Field label="Road Condition" value={v.approachRoadCondition} />
+                          <Field label="Nearest Bus Stop" value={v.busStop} />
+                          <Field label="Railway Station" value={v.railwayStation} />
+                          <Field label="Class of Locality" value={v.classOfLocality} />
+                          <Field label="Marketability" value={v.marketability} />
+                          <Field label="Nearby Amenities" value={v.nearbyAmenities} full />
+                          <Field label="Latitude" value={v.latitude} />
+                          <Field label="Longitude" value={v.longitude} />
+                        </div>
+                      </div>
+
+                      {/* 5. Area & Construction */}
+                      <div style={sectionStyle}>
+                        <div style={headerStyle}>📐 Area & Construction Details</div>
+                        <div style={gridStyle}>
+                          <Field label="Plot / Land Area" value={v.plotArea || v.siteAreaActual} />
+                          <Field label="UDS Area" value={v.udsArea} />
+                          <Field label="Carpet Area (sq ft)" value={v.carpetArea} />
+                          <Field label="Built-up Area (sq ft)" value={v.builtUpArea || v.actualBUA} />
+                          <Field label="Number of Floors" value={v.numberOfFloorsAsBuilt || v.floors} />
+                          <Field label="Number of Rooms" value={v.numberOfRooms || v.rooms} />
+                          <Field label="Type of Structure" value={v.typeOfStructure} />
+                          <Field label="Construction Type" value={v.typeOfConstruction} />
+                          <Field label="Roof" value={v.roof} />
+                          <Field label="Flooring" value={v.flooring} />
+                          <Field label="Year of Construction" value={v.yearOfConstruction} />
+                          <Field label="Age of Property (yrs)" value={v.ageOfProperty || v.propertyAge} />
+                          <Field label="Residual Life (yrs)" value={v.residualLife} />
+                          <Field label="Construction Quality" value={v.constructionQuality} />
+                          <Field label="Construction Stage" value={v.constructionStage} />
+                          <Field label="Plot Shape" value={v.plotShape} />
+                        </div>
+                      </div>
+
+                      {/* 6. Occupancy */}
+                      <div style={sectionStyle}>
+                        <div style={headerStyle}>🏡 Occupancy & Identification</div>
+                        <div style={gridStyle}>
+                          <Field label="Present Occupancy" value={v.presentOccupancy || v.occupancy} />
+                          <Field label="Occupant Name" value={v.occupantName} />
+                          <Field label="Occupant Relationship" value={v.occupantRelationship} />
+                          <Field label="Property Identified Through" value={v.identificationMethod || v.identifiedThrough} />
+                        </div>
+                      </div>
+
+                      {/* 7. Boundaries */}
+                      <div style={sectionStyle}>
+                        <div style={{ ...headerStyle, background: 'linear-gradient(90deg, #fefce8, #fef9c3)', color: '#854d0e', borderBottom: '1px solid #fde68a' }}>📍 Boundary Details</div>
+                        <div style={gridStyle}>
+                          <Field label="North (as per Document)" value={v.northBoundaryDoc} />
+                          <Field label="North (as at Site)" value={v.northBoundarySite} />
+                          <Field label="South (as per Document)" value={v.southBoundaryDoc} />
+                          <Field label="South (as at Site)" value={v.southBoundarySite} />
+                          <Field label="East (as per Document)" value={v.eastBoundaryDoc} />
+                          <Field label="East (as at Site)" value={v.eastBoundarySite} />
+                          <Field label="West (as per Document)" value={v.westBoundaryDoc} />
+                          <Field label="West (as at Site)" value={v.westBoundarySite} />
+                          <Field label="Boundaries Matching" value={v.boundariesMatching === true || v.boundariesMatching === 'Yes' ? '✅ Yes' : v.boundariesMatching === false || v.boundariesMatching === 'No' ? '❌ No' : v.boundariesMatching} />
+                          <Field label="Boundary Remarks" value={v.boundaryDifferenceRemarks} />
+                        </div>
+                      </div>
+
+                      {/* 8. Approvals */}
+                      <div style={sectionStyle}>
+                        <div style={headerStyle}>📜 Approvals & Documents</div>
+                        <div style={gridStyle}>
+                          <Field label="Building Approval" value={v.buildingApprovalAvailable ? `✅ Available (${v.buildingApprovalNumber || ''})` : '❌ Not Available'} />
+                          <Field label="DTCP Approval" value={v.dtcpApproval} />
+                          <Field label="HNTDA Approval" value={v.hntdaApproval} />
+                          <Field label="RERA" value={v.rera} />
+                          <Field label="Sanction Plan Verified" value={v.sanctionPlanVerified ? '✅ Yes' : '❌ No'} />
+                          <Field label="Construction as per Plan" value={v.constructionAsPerPlan ? '✅ Yes' : (v.deviationFromPlan ? '❌ Deviations found' : '—')} />
+                          <Field label="Ownership Type" value={v.ownershipType} />
+                          <Field label="Documents Verified" value={v.documentsVerified ? '✅ Verified' : (v.documentsVerified === false ? '❌ Not Verified' : v.documentsVerified)} />
+                          <Field label="FSR Permitted" value={v.fsrPermitted} />
+                          <Field label="FSR Actual" value={v.fsrActual} />
+                        </div>
+                      </div>
+
+                      {/* 9. Valuation */}
+                      <div style={{ ...sectionStyle, border: '1.5px solid #bbf7d0' }}>
+                        <div style={{ ...headerStyle, background: 'linear-gradient(90deg, #f0fdf4, #dcfce7)', color: '#166534', borderBottom: '1px solid #86efac' }}>💰 Valuation Details</div>
+                        <div style={gridStyle}>
+                          <Field label="Present Market Rate" value={v.presentMarketRate ? `₹${Number(v.presentMarketRate).toLocaleString('en-IN')}/sq.ft` : undefined} />
+                          <Field label="Guideline Value" value={v.guidelineValue ? `₹${Number(v.guidelineValue).toLocaleString('en-IN')}/sq.ft` : undefined} />
+                          <Field label="Land Value" value={v.landValue ? `₹${Number(v.landValue).toLocaleString('en-IN')}` : undefined} />
+                          <Field label="Net Construction Value" value={v.netConstructionValue ? `₹${Number(v.netConstructionValue).toLocaleString('en-IN')}` : undefined} />
+                          <Field label="Depreciation %" value={v.depreciationPercent} />
+                          <Field label="Amenities Value" value={v.amenitiesValue ? `₹${Number(v.amenitiesValue).toLocaleString('en-IN')}` : undefined} />
+                          <Field label="Total Property Value" value={v.totalPropertyValue || v.totalValue ? `₹${Number(v.totalPropertyValue || v.totalValue).toLocaleString('en-IN')}` : undefined} />
+                          <Field label="Present Market Value" value={v.presentMarketValue ? `₹${Number(v.presentMarketValue).toLocaleString('en-IN')}` : undefined} />
+                          <Field label="Realizable Value" value={v.realizableValue ? `₹${Number(v.realizableValue).toLocaleString('en-IN')}` : undefined} />
+                          <Field label="Forced Sale Value" value={v.forcedSaleValue ? `₹${Number(v.forcedSaleValue).toLocaleString('en-IN')}` : undefined} />
+                          <Field label="Value in Words" value={v.valueInWords} full />
+                        </div>
+                      </div>
+
+                      {/* 10. Observations */}
+                      {(v.observation || v.remarks) && (
+                        <div style={sectionStyle}>
+                          <div style={headerStyle}>📝 Observations & Remarks</div>
+                          <div style={{ padding: 14, display: 'grid', gap: 12 }}>
+                            {v.observation && (
+                              <div>
+                                <div style={labelStyle}>Observation</div>
+                                <div style={{ ...valStyle, fontWeight: 500, fontSize: '0.85rem', lineHeight: 1.6, color: '#374151' }}>{v.observation}</div>
+                              </div>
+                            )}
+                            {v.remarks && (
+                              <div>
+                                <div style={labelStyle}>Remarks</div>
+                                <div style={{ ...valStyle, fontWeight: 500, fontSize: '0.85rem', lineHeight: 1.6, color: '#374151' }}>{v.remarks}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 11. Site Photos */}
+                      {viewingReportJob.sitePhotos?.length > 0 && (
+                        <div style={sectionStyle}>
+                          <div style={headerStyle}>📷 Site Photos ({viewingReportJob.sitePhotos.length})</div>
+                          <div style={{ padding: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            {viewingReportJob.sitePhotos.map((photo, pIdx) => (
+                              <a key={pIdx} href={`http://localhost:3000${photo.url}`} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={`http://localhost:3000${photo.url}`}
+                                  alt={photo.name || `Photo ${pIdx + 1}`}
+                                  style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, border: '2px solid #e2e8f0', transition: 'transform 0.15s', cursor: 'pointer' }}
+                                  onMouseOver={(e) => e.target.style.transform = 'scale(1.08)'}
+                                  onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+
+                {/* Footer Actions */}
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid #e5e7eb', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => {
+                      setViewingReportJob(null)
+                      setIsEditingReportModal(false)
+                      setEditingJobForm(viewingReportJob)
+                      window.scrollTo({ top: 120, behavior: 'smooth' })
+                    }}
+                  >
+                    ✏️ Edit Full Inspection Form
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => onGenerateReport(viewingReportJob.id, { applicantName: viewingReportJob.customer, branchName: viewingReportJob.branch, caseRefNo: viewingReportJob.id, sitePhotos: viewingReportJob.sitePhotos || [] })}
+                  >
+                    📊 Export Excel Report
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false) }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
