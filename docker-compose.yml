@@ -32,8 +32,8 @@ services:
       - MONGODB_URI=mongodb://mongo:27017/banking-leads
       - NODE_ENV=production
     volumes:
-      - backend_uploads:/app/uploads
-      - backend_generated:/app/generated
+      - ./backend/uploads:/app/uploads
+      - ./backend/generated:/app/generated
     depends_on:
       mongo:
         condition: service_healthy
@@ -60,8 +60,4 @@ networks:
 
 volumes:
   mongo_data:
-    driver: local
-  backend_uploads:
-    driver: local
-  backend_generated:
     driver: local
