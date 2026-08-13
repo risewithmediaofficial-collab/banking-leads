@@ -889,6 +889,68 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
               </div>
             </div>
 
+            {/* Leads Table */}
+            <div className="table-container">
+              <div className="table-toolbar">
+                <input className="table-search" placeholder="Search by customer, phone, ref, branch..." value={leadSearchQuery} onChange={(e) => setLeadSearchQuery(e.target.value)} />
+                <select className="table-filter" value={bankFilter} onChange={(e) => setBankFilter(e.target.value)}>
+                  <option value="ALL">All Banks</option><option value="UJJ">Ujjivan</option><option value="NIVARA">Nivara</option>
+                </select>
+                <select className="table-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                  <option value="ALL">All Status</option><option value="NEW">New</option><option value="ASSIGNED">Assigned</option>
+                </select>
+                <DateRangeFilter
+                  startDate={leadFromDate}
+                  endDate={leadToDate}
+                  onStartDateChange={setLeadFromDate}
+                  onEndDateChange={setLeadToDate}
+                  onClear={() => { setLeadFromDate(''); setLeadToDate('') }}
+                />
+                <span style={{ fontSize: '0.82rem', color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{filteredLeads.length} leads</span>
+              </div>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Ref / Date</th><th>Bank / Branch</th><th>Customer</th><th>Phone</th>
+                      <th>Location</th><th>Type / Priority</th><th>Executive</th><th>Status</th><th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLeads.length === 0 ? (
+                      <tr><td colSpan={9}><div className="table-empty"><div className="table-empty-icon">📋</div><p>No leads match your search</p></div></td></tr>
+                    ) : filteredLeads.map((lead) => {
+                      const leadId = lead.id || lead._id
+                      return (
+                        <tr key={leadId}>
+                          <td><div className="td-primary">{lead.bankRefNo || '—'}</div><div className="td-secondary">{lead.receivedDate}</div></td>
+                          <td><div className="td-primary">{lead.bankCode}</div><div className="td-secondary">{lead.branch}</div></td>
+                          <td><div className="td-primary">{lead.customer}</div></td>
+                          <td>{lead.customerPhone || '—'}</td>
+                          <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.location || '—'}</td>
+                          <td>
+                            <div>{lead.loanType}</div>
+                            <span className={`badge ${lead.priority === 'Urgent' ? 'badge-red' : 'badge-gray'}`} style={{ fontSize: '0.7rem' }}>{lead.priority}</span>
+                          </td>
+                          <td>{lead.assignedEmployee || <span style={{ color: 'var(--gray-400)' }}>Unassigned</span>}</td>
+                          <td><span className={`badge ${STATUS_COLOR[lead.status] || 'badge-gray'}`}>{lead.status || 'NEW'}</span></td>
+                          <td>
+                            <div className="inline-actions">
+                              <button type="button" className="secondary-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={() => selectLeadForTask(leadId)}>+ Task</button>
+                              <button type="button" className="secondary-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={() => handleEditLead(lead)}>Edit</button>
+                              <button type="button" className="secondary-btn danger-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={() => handleDeleteLead(leadId)}>Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ══ ADD / EDIT BANK LEAD PAGE ══ */}
         {activeSection === 'lead-form' && (
           <div className="card" style={{ maxWidth: 820, margin: '0 auto 30px', borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid var(--gray-200)' }}>
@@ -999,68 +1061,6 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
           </div>
         )}
 
-            {/* Leads Table */}
-            <div className="table-container">
-              <div className="table-toolbar">
-                <input className="table-search" placeholder="Search by customer, phone, ref, branch..." value={leadSearchQuery} onChange={(e) => setLeadSearchQuery(e.target.value)} />
-                <select className="table-filter" value={bankFilter} onChange={(e) => setBankFilter(e.target.value)}>
-                  <option value="ALL">All Banks</option><option value="UJJ">Ujjivan</option><option value="NIVARA">Nivara</option>
-                </select>
-                <select className="table-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  <option value="ALL">All Status</option><option value="NEW">New</option><option value="ASSIGNED">Assigned</option>
-                </select>
-                <DateRangeFilter
-                  startDate={leadFromDate}
-                  endDate={leadToDate}
-                  onStartDateChange={setLeadFromDate}
-                  onEndDateChange={setLeadToDate}
-                  onClear={() => { setLeadFromDate(''); setLeadToDate('') }}
-                />
-                <span style={{ fontSize: '0.82rem', color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{filteredLeads.length} leads</span>
-              </div>
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Ref / Date</th><th>Bank / Branch</th><th>Customer</th><th>Phone</th>
-                      <th>Location</th><th>Type / Priority</th><th>Executive</th><th>Status</th><th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLeads.length === 0 ? (
-                      <tr><td colSpan={9}><div className="table-empty"><div className="table-empty-icon">📋</div><p>No leads match your search</p></div></td></tr>
-                    ) : filteredLeads.map((lead) => {
-                      const leadId = lead.id || lead._id
-                      return (
-                        <tr key={leadId}>
-                          <td><div className="td-primary">{lead.bankRefNo || '—'}</div><div className="td-secondary">{lead.receivedDate}</div></td>
-                          <td><div className="td-primary">{lead.bankCode}</div><div className="td-secondary">{lead.branch}</div></td>
-                          <td><div className="td-primary">{lead.customer}</div></td>
-                          <td>{lead.customerPhone || '—'}</td>
-                          <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lead.location || '—'}</td>
-                          <td>
-                            <div>{lead.loanType}</div>
-                            <span className={`badge ${lead.priority === 'Urgent' ? 'badge-red' : 'badge-gray'}`} style={{ fontSize: '0.7rem' }}>{lead.priority}</span>
-                          </td>
-                          <td>{lead.assignedEmployee || <span style={{ color: 'var(--gray-400)' }}>Unassigned</span>}</td>
-                          <td><span className={`badge ${STATUS_COLOR[lead.status] || 'badge-gray'}`}>{lead.status || 'NEW'}</span></td>
-                          <td>
-                            <div className="inline-actions">
-                              <button type="button" className="secondary-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={() => selectLeadForTask(leadId)}>+ Task</button>
-                              <button type="button" className="secondary-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={() => handleEditLead(lead)}>Edit</button>
-                              <button type="button" className="secondary-btn danger-btn" style={{ padding: '5px 10px', fontSize: '0.78rem' }} onClick={() => handleDeleteLead(leadId)}>Delete</button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Add Task moved into All Tasks view */}
 
         {/* ══ ALL TASKS ══ */}
@@ -1122,6 +1122,39 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                 <div style={{ color: 'var(--gray-600)', fontWeight: 600 }}>Create and assign a new field inspection task</div>
               </div>
             </div>
+
+            {/* Jobs Grid */}
+            <div className="jobs-grid">
+              {filteredTasks.length === 0 ? (
+                <div className="table-empty" style={{ gridColumn: '1/-1', background: '#fff', borderRadius: 16, padding: 40, border: '1px solid var(--gray-200)' }}>
+                  <div className="table-empty-icon">📋</div><p>No tasks match your search filters</p>
+                </div>
+              ) : filteredTasks.map((job) => (
+                <div key={job.id} className="job-card">
+                  <div className="job-card-header">
+                    <div>
+                      <div className="job-card-id">Task #{job.id?.slice(-8)}</div>
+                      <div className="job-card-customer">{job.customer}</div>
+                    </div>
+                    <span className={`badge ${STATUS_COLOR[job.status] || 'badge-gray'}`}>{job.status?.replace(/_/g, ' ')}</span>
+                  </div>
+                  <div className="job-card-bank">{job.bank} · {job.branch}</div>
+                  <div className="job-card-meta">
+                    <div className="job-meta-item"><strong>Executive:</strong> {job.assignedEmployee || '—'}</div>
+                    <div className="job-meta-item"><strong>Location:</strong> {job.location || '—'}</div>
+                    {job.statusNote && <div className="job-meta-item" style={{ gridColumn: '1/-1' }}><strong>Note:</strong> {job.statusNote}</div>}
+                    {job.sitePhotos?.length > 0 && <div className="job-meta-item" style={{ color: 'var(--green-600)', fontWeight: 600 }}>📷 {job.sitePhotos.length} photo(s)</div>}
+                  </div>
+                  <div className="job-card-actions">
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => { setEditingJobForm(job); window.scrollTo({ top: 120, behavior: 'smooth' }) }}>✏️ View & Edit Form</button>
+                    <button type="button" className="secondary-btn" onClick={() => fillFromJob(job)}>Use for Report</button>
+                    <button type="button" className="secondary-btn danger-btn" onClick={async () => { if (window.confirm('Delete this task?')) { await onDeleteJob(job.id); showMsg('Task deleted') } }}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ══ ADD / ASSIGN TASK PAGE ══ */}
         {activeSection === 'task-form' && (
@@ -1215,39 +1248,6 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                   <button type="submit" className="btn btn-primary btn-lg" disabled={submittingTask}>{submittingTask ? 'Processing...' : '🚀 Create & Assign Task →'}</button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
-
-            <div className="jobs-grid">
-              {filteredTasks.length === 0 ? (
-                <div className="table-empty" style={{ gridColumn: '1/-1', background: '#fff', borderRadius: 16, padding: 40, border: '1px solid var(--gray-200)' }}>
-                  <div className="table-empty-icon">📋</div><p>No tasks match your search filters</p>
-                </div>
-              ) : filteredTasks.map((job) => (
-                <div key={job.id} className="job-card">
-                  <div className="job-card-header">
-                    <div>
-                      <div className="job-card-id">Task #{job.id?.slice(-8)}</div>
-                      <div className="job-card-customer">{job.customer}</div>
-                    </div>
-                    <span className={`badge ${STATUS_COLOR[job.status] || 'badge-gray'}`}>{job.status?.replace(/_/g, ' ')}</span>
-                  </div>
-                  <div className="job-card-bank">{job.bank} · {job.branch}</div>
-                  <div className="job-card-meta">
-                    <div className="job-meta-item"><strong>Executive:</strong> {job.assignedEmployee || '—'}</div>
-                    <div className="job-meta-item"><strong>Location:</strong> {job.location || '—'}</div>
-                    {job.statusNote && <div className="job-meta-item" style={{ gridColumn: '1/-1' }}><strong>Note:</strong> {job.statusNote}</div>}
-                    {job.sitePhotos?.length > 0 && <div className="job-meta-item" style={{ color: 'var(--green-600)', fontWeight: 600 }}>📷 {job.sitePhotos.length} photo(s)</div>}
-                  </div>
-                  <div className="job-card-actions">
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => { setEditingJobForm(job); window.scrollTo({ top: 120, behavior: 'smooth' }) }}>✏️ View & Edit Form</button>
-                    <button type="button" className="secondary-btn" onClick={() => fillFromJob(job)}>Use for Report</button>
-                    <button type="button" className="secondary-btn danger-btn" onClick={async () => { if (window.confirm('Delete this task?')) { await onDeleteJob(job.id); showMsg('Task deleted') } }}>Delete</button>
-                  </div>
-
-                </div>
-              ))}
             </div>
           </div>
         )}
