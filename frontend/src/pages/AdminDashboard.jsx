@@ -137,7 +137,7 @@ function Icon({ id }) {
   return map[id] || null
 }
 
-function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, users, loading, onRefresh, onCreateLead, onUpdateLead, onDeleteLead, onExportLeads, onCreateBankTemplate, onUpdateBankTemplate, onDeleteBankTemplate, onCreateEmployee, onDeleteEmployee, onCreateTask, onAssignLead, onSubmitJob, onDeleteJob, onVerifyJob, onGenerateReport, onGenerateBilling, onSubmitVendorBill }) {
+function AdminDashboard({ user, dashboardData, banks, bankTemplates, leads, jobs, users, loading, onRefresh, onCreateLead, onUpdateLead, onDeleteLead, onExportLeads, onCreateBankTemplate, onUpdateBankTemplate, onDeleteBankTemplate, onCreateEmployee, onDeleteEmployee, onCreateTask, onAssignLead, onSubmitJob, onDeleteJob, onVerifyJob, onGenerateReport, onGenerateBilling, onSubmitVendorBill }) {
   const stats = dashboardData?.stats || []
   const fieldUsers = users.filter((u) => u.role === 'field')
 
@@ -148,45 +148,6 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
   const [message, setMessage] = useState(null)
   const mobileToggleRef = useRef(null)
   const sidebarRef = useRef(null)
-
-
-  useEffect(() => {
-    if (!isMobileMenuOpen) return
-    const prevFocused = document.activeElement
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    const focusFirst = () => {
-      const focusable = sidebarRef.current?.querySelectorAll('a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])')
-      if (focusable && focusable.length) focusable[0].focus()
-    }
-    focusFirst()
-
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') { setIsMobileMenuOpen(false); return }
-      if (e.key === 'Tab') {
-        const focusable = sidebarRef.current?.querySelectorAll('a,button,input,select,textarea,[tabindex]:not([tabindex="-1"])') || []
-        if (focusable.length === 0) return
-        const first = focusable[0]
-        const last = focusable[focusable.length - 1]
-        if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
-        else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    const onResize = () => setIsMobileMenuOpen(false)
-    window.addEventListener('orientationchange', onResize)
-    window.addEventListener('resize', onResize)
-
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('orientationchange', onResize)
-      window.removeEventListener('resize', onResize)
-      document.body.style.overflow = prevOverflow
-      try { if (prevFocused && prevFocused.focus) prevFocused.focus() } catch (e) {}
-    }
-  }, [isMobileMenuOpen])
 
   // Date Filter States
   const [overviewFromDate, setOverviewFromDate] = useState('')
@@ -201,8 +162,21 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
   const [verifyFromDate, setVerifyFromDate] = useState('')
   const [verifyToDate, setVerifyToDate] = useState('')
 
+  const [reportFromDate, setReportFromDate] = useState('')
+  const [reportToDate, setReportToDate] = useState('')
+  const [reportSearchQuery, setReportSearchQuery] = useState('')
+
   const [billingFromDate, setBillingFromDate] = useState('')
   const [billingToDate, setBillingToDate] = useState('')
+
+  const [employeeFromDate, setEmployeeFromDate] = useState('')
+  const [employeeToDate, setEmployeeToDate] = useState('')
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState('')
+
+  const [bankFromDate, setBankFromDate] = useState('')
+  const [bankToDate, setBankToDate] = useState('')
+  const [bankSearchQuery, setBankSearchQuery] = useState('')
+
   const [leadForm, setLeadForm] = useState(emptyLeadForm)
   const [editingLeadId, setEditingLeadId] = useState('')
   const [showLeadModal, setShowLeadModal] = useState(false)
@@ -219,7 +193,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
   const [billingPeriod, setBillingPeriod] = useState('all')
   const [billingViewMode, setBillingViewMode] = useState('generate')
   const [billingSummary, setBillingSummary] = useState(null)
-  const [employeeForm, setEmployeeForm] = useState({ name: '', email: '', username: '', password: '', phone: '' })
+  const [employeeForm, setEmployeeForm] = useState({ name: '', email: '', username: '', password: '', phone: '', role: 'field' })
   const [showEmpPassword, setShowEmpPassword] = useState(false)
   const [bankForm, setBankForm] = useState({ name: '', code: '', branchName: '', address: '' })
   const [editingBankId, setEditingBankId] = useState('')
@@ -243,6 +217,65 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
   const [billingSearchQuery, setBillingSearchQuery] = useState('')
   const [billingBankFilter, setBillingBankFilter] = useState('ALL')
   const [billingStatusFilter, setBillingStatusFilter] = useState('ALL')
+
+  const filteredOverviewLeads = useMemo(() => {
+    return leads.filter((lead) => isDateInRange(lead.receivedDate || lead.createdAt || lead.date, overviewFromDate, overviewToDate))
+  }, [leads, overviewFromDate, overviewToDate])
+
+  const filteredOverviewJobs = useMemo(() => {
+    return jobs.filter((job) => isDateInRange(job.initiationDate || job.createdAt || job.visitedAt || job.submittedAt || job.dueDate, overviewFromDate, overviewToDate))
+  }, [jobs, overviewFromDate, overviewToDate])
+
+  const filteredReportJobs = useMemo(() => {
+    return jobs.filter((job) => {
+      const isSubmitted = job.status === 'SUBMITTED_FOR_VERIFICATION' || job.status === 'VERIFIED' || (job.sitePhotos && job.sitePhotos.length > 0)
+      if (!isSubmitted) return false
+      if (bankFilter !== 'ALL' && (job.bankCode || '').toUpperCase() !== bankFilter) return false
+      if (!isDateInRange(job.reportDate || job.submittedAt || job.visitedAt || job.createdAt, reportFromDate, reportToDate)) return false
+      if (reportSearchQuery.trim()) {
+        const q = reportSearchQuery.toLowerCase()
+        return (
+          (job.customer || '').toLowerCase().includes(q) ||
+          (job.bank || '').toLowerCase().includes(q) ||
+          (job.assignedEmployee || '').toLowerCase().includes(q) ||
+          (job.branch || '').toLowerCase().includes(q) ||
+          (job.location || '').toLowerCase().includes(q)
+        )
+      }
+      return true
+    })
+  }, [jobs, bankFilter, reportFromDate, reportToDate, reportSearchQuery])
+
+  const filteredEmployees = useMemo(() => {
+    return fieldUsers.filter((emp) => {
+      if (!isDateInRange(emp.createdAt || emp.date, employeeFromDate, employeeToDate)) return false
+      if (employeeSearchQuery.trim()) {
+        const q = employeeSearchQuery.toLowerCase()
+        return (
+          (emp.name || '').toLowerCase().includes(q) ||
+          (emp.email || '').toLowerCase().includes(q) ||
+          (emp.username || '').toLowerCase().includes(q) ||
+          (emp.phone || '').includes(q)
+        )
+      }
+      return true
+    })
+  }, [fieldUsers, employeeFromDate, employeeToDate, employeeSearchQuery])
+
+  const filteredBankTemplates = useMemo(() => {
+    return bankTemplates.filter((tpl) => {
+      if (!isDateInRange(tpl.createdAt || tpl.updatedAt, bankFromDate, bankToDate)) return false
+      if (bankSearchQuery.trim()) {
+        const q = bankSearchQuery.toLowerCase()
+        return (
+          (tpl.name || '').toLowerCase().includes(q) ||
+          (tpl.code || '').toLowerCase().includes(q) ||
+          (tpl.branchName || '').toLowerCase().includes(q)
+        )
+      }
+      return true
+    })
+  }, [bankTemplates, bankFromDate, bankToDate, bankSearchQuery])
 
   const filteredTasks = useMemo(() => {
     return jobs.filter((job) => {
@@ -777,12 +810,10 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
 
         {/* ══ OVERVIEW ══ */}
         {activeSection === 'overview' && (
-
-
           <div>
             <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <h2>Operations Dashboard</h2>
+                <h2>{user?.role === 'superadmin' ? 'Super Admin Operations Dashboard' : 'Operations Dashboard'}</h2>
                 <p>Monitor all bank leads, field tasks, verifications and billing activity</p>
               </div>
               <DateRangeFilter
@@ -796,10 +827,10 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
 
             <div className="stats-grid">
               {[
-                { label: 'Total Leads', value: leads.length, color: 'blue', icon: '📋' },
-                { label: 'Active Tasks', value: jobs.filter((j) => !['VERIFIED','COMPLETED'].includes(j.status)).length, color: 'amber', icon: '🚗' },
-                { label: 'Pending Verification', value: jobs.filter((j) => j.status === 'SUBMITTED_FOR_VERIFICATION').length, color: 'purple', icon: '🔍' },
-                { label: 'Verified / Completed', value: jobs.filter((j) => ['VERIFIED','COMPLETED'].includes(j.status)).length, color: 'green', icon: '✅' },
+                { label: 'Total Leads', value: filteredOverviewLeads.length, color: 'blue', icon: '📋' },
+                { label: 'Active Tasks', value: filteredOverviewJobs.filter((j) => !['VERIFIED','COMPLETED'].includes(j.status)).length, color: 'amber', icon: '🚗' },
+                { label: 'Pending Verification', value: filteredOverviewJobs.filter((j) => j.status === 'SUBMITTED_FOR_VERIFICATION').length, color: 'purple', icon: '🔍' },
+                { label: 'Verified / Completed', value: filteredOverviewJobs.filter((j) => ['VERIFIED','COMPLETED'].includes(j.status)).length, color: 'green', icon: '✅' },
                 { label: 'Field Executives', value: fieldUsers.length, color: 'blue', icon: '👷' },
               ].map(({ label, value, color, icon }) => (
                 <div key={label} className={`stat-card ${color}`}>
@@ -816,7 +847,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
               {/* Recent Leads */}
               <div className="table-container">
                 <div className="table-toolbar">
-                  <strong style={{ fontWeight: 700 }}>Recent Leads</strong>
+                  <strong style={{ fontWeight: 700 }}>Recent Leads ({filteredOverviewLeads.length})</strong>
                   <button type="button" className="secondary-btn" onClick={() => setActiveSection('leads')} style={{ marginLeft: 'auto' }}>View All</button>
                 </div>
                 <div className="table-scroll">
@@ -825,14 +856,14 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                       <tr><th>Customer</th><th>Bank</th><th>Status</th></tr>
                     </thead>
                     <tbody>
-                      {leads.slice(0, 6).map((lead) => (
+                      {filteredOverviewLeads.slice(0, 6).map((lead) => (
                         <tr key={lead.id || lead._id}>
                           <td><div className="td-primary">{lead.customer}</div><div className="td-secondary">{lead.branch}</div></td>
                           <td>{lead.bankCode}</td>
                           <td><span className={`badge ${STATUS_COLOR[lead.status] || 'badge-gray'}`}>{lead.status || 'NEW'}</span></td>
                         </tr>
                       ))}
-                      {leads.length === 0 && <tr><td colSpan={3}><div className="table-empty"><div className="table-empty-icon">📋</div><p>No leads yet</p></div></td></tr>}
+                      {filteredOverviewLeads.length === 0 && <tr><td colSpan={3}><div className="table-empty"><div className="table-empty-icon">📋</div><p>No leads in selected date range</p></div></td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -841,7 +872,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
               {/* Recent Tasks */}
               <div className="table-container">
                 <div className="table-toolbar">
-                  <strong style={{ fontWeight: 700 }}>Recent Tasks</strong>
+                  <strong style={{ fontWeight: 700 }}>Recent Tasks ({filteredOverviewJobs.length})</strong>
                   <button type="button" className="secondary-btn" onClick={() => setActiveSection('tasks')} style={{ marginLeft: 'auto' }}>View All</button>
                 </div>
                 <div className="table-scroll">
@@ -850,14 +881,14 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                       <tr><th>Customer</th><th>Executive</th><th>Status</th></tr>
                     </thead>
                     <tbody>
-                      {jobs.slice(0, 6).map((job) => (
+                      {filteredOverviewJobs.slice(0, 6).map((job) => (
                         <tr key={job.id}>
                           <td><div className="td-primary">{job.customer}</div><div className="td-secondary">{job.bank}</div></td>
                           <td>{job.assignedEmployee || '-'}</td>
                           <td><span className={`badge ${STATUS_COLOR[job.status] || 'badge-gray'}`}>{job.status?.replace(/_/g, ' ')}</span></td>
                         </tr>
                       ))}
-                      {jobs.length === 0 && <tr><td colSpan={3}><div className="table-empty"><div className="table-empty-icon">✅</div><p>No tasks yet</p></div></td></tr>}
+                      {filteredOverviewJobs.length === 0 && <tr><td colSpan={3}><div className="table-empty"><div className="table-empty-icon">✅</div><p>No tasks in selected date range</p></div></td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -1349,13 +1380,20 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
           <div>
             <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div>
-                <h2>Submitted Technical Reports ({jobs.filter((j) => j.status === 'SUBMITTED_FOR_VERIFICATION' || j.status === 'VERIFIED').length})</h2>
+                <h2>Submitted Technical Reports ({filteredReportJobs.length})</h2>
                 <p>View property inspection reports submitted by field executives and export in bank Excel/PDF format</p>
               </div>
             </div>
 
-            {/* Filter */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Filter Toolbar */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center', background: '#fff', padding: 14, borderRadius: 14, border: '1px solid var(--gray-200)' }}>
+              <input
+                className="form-input"
+                style={{ flex: 1, minWidth: 200 }}
+                placeholder="🔍 Search reports by customer, executive, branch, location..."
+                value={reportSearchQuery}
+                onChange={(e) => setReportSearchQuery(e.target.value)}
+              />
               <div style={{ display: 'flex', gap: 6 }}>
                 {[['ALL', 'All Banks'], ['UJJ', 'Ujjivan SFB'], ['NIVARA', 'Nivara HF']].map(([code, label]) => (
                   <button
@@ -1369,32 +1407,25 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                   </button>
                 ))}
               </div>
+              <DateRangeFilter
+                startDate={reportFromDate}
+                endDate={reportToDate}
+                onStartDateChange={setReportFromDate}
+                onEndDateChange={setReportToDate}
+                onClear={() => { setReportFromDate(''); setReportToDate('') }}
+              />
             </div>
 
             {/* Submitted Reports Grid / Table */}
             <div className="jobs-grid">
-              {jobs
-                .filter((j) => {
-                  const isSubmitted = j.status === 'SUBMITTED_FOR_VERIFICATION' || j.status === 'VERIFIED' || (j.sitePhotos && j.sitePhotos.length > 0)
-                  if (!isSubmitted) return false
-                  if (bankFilter !== 'ALL' && (j.bankCode || '').toUpperCase() !== bankFilter) return false
-                  return true
-                })
-                .length === 0 ? (
+              {filteredReportJobs.length === 0 ? (
                 <div className="card" style={{ gridColumn: '1 / -1', padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
                   <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>📊</div>
-                  <p style={{ fontWeight: 600 }}>No submitted property technical reports found</p>
+                  <p style={{ fontWeight: 600 }}>No submitted property technical reports found in selected range</p>
                   <p style={{ fontSize: '0.85rem', marginTop: 4 }}>When field employees submit property verification forms from their login, they will appear here ready for export.</p>
                 </div>
               ) : (
-                jobs
-                  .filter((j) => {
-                    const isSubmitted = j.status === 'SUBMITTED_FOR_VERIFICATION' || j.status === 'VERIFIED' || (j.sitePhotos && j.sitePhotos.length > 0)
-                    if (!isSubmitted) return false
-                    if (bankFilter !== 'ALL' && (j.bankCode || '').toUpperCase() !== bankFilter) return false
-                    return true
-                  })
-                  .map((job) => {
+                filteredReportJobs.map((job) => {
                     const photoCount = job.sitePhotos?.length || 0
                     const totalVal = job.visitDetails?.totalPropertyValue || job.visitDetails?.presentMarketValue || job.visitDetails?.totalValue
                     return (
@@ -2110,14 +2141,32 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
             </div>
 
             <div className="table-container">
-              <div className="table-toolbar"><strong>{fieldUsers.length} Field Executives</strong></div>
+              <div className="table-toolbar" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  className="table-search"
+                  placeholder="🔍 Search executive by name, email, username..."
+                  value={employeeSearchQuery}
+                  onChange={(e) => setEmployeeSearchQuery(e.target.value)}
+                  style={{ flex: 1, minWidth: 200 }}
+                />
+                <DateRangeFilter
+                  startDate={employeeFromDate}
+                  endDate={employeeToDate}
+                  onStartDateChange={setEmployeeFromDate}
+                  onEndDateChange={setEmployeeToDate}
+                  onClear={() => { setEmployeeFromDate(''); setEmployeeToDate('') }}
+                />
+                <span style={{ fontSize: '0.82rem', color: 'var(--gray-500)', fontWeight: 700 }}>
+                  {filteredEmployees.length} Executives
+                </span>
+              </div>
               <div className="table-scroll">
                 <table>
                   <thead><tr><th>Name</th><th>Email</th><th>Username</th><th>Phone</th><th>Active Tasks</th><th>Actions</th></tr></thead>
                   <tbody>
-                    {fieldUsers.length === 0 ? (
-                      <tr><td colSpan={6}><div className="table-empty"><div className="table-empty-icon">👷</div><p>No field executives added yet</p></div></td></tr>
-                    ) : fieldUsers.map((emp) => {
+                    {filteredEmployees.length === 0 ? (
+                      <tr><td colSpan={6}><div className="table-empty"><div className="table-empty-icon">👷</div><p>No field executives found in selected range</p></div></td></tr>
+                    ) : filteredEmployees.map((emp) => {
                       const empId = emp.id || emp._id
                       const empJobs = jobs.filter((j) => j.assignedTo === empId)
                       return (
@@ -2188,13 +2237,32 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
             </div>
 
             <div className="table-container">
+              <div className="table-toolbar" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  className="table-search"
+                  placeholder="🔍 Search bank template by name, code, branch..."
+                  value={bankSearchQuery}
+                  onChange={(e) => setBankSearchQuery(e.target.value)}
+                  style={{ flex: 1, minWidth: 200 }}
+                />
+                <DateRangeFilter
+                  startDate={bankFromDate}
+                  endDate={bankToDate}
+                  onStartDateChange={setBankFromDate}
+                  onEndDateChange={setBankToDate}
+                  onClear={() => { setBankFromDate(''); setBankToDate('') }}
+                />
+                <span style={{ fontSize: '0.82rem', color: 'var(--gray-500)', fontWeight: 700 }}>
+                  {filteredBankTemplates.length} Banks
+                </span>
+              </div>
               <div className="table-scroll">
                 <table>
                   <thead><tr><th>Bank Name</th><th>Code</th><th>Branch</th><th>Report Template</th><th>Bill Template</th><th>Actions</th></tr></thead>
                   <tbody>
-                    {bankTemplates.length === 0 ? (
-                      <tr><td colSpan={6}><div className="table-empty"><div className="table-empty-icon">🏦</div><p>No banks configured yet</p></div></td></tr>
-                    ) : bankTemplates.map((tpl) => {
+                    {filteredBankTemplates.length === 0 ? (
+                      <tr><td colSpan={6}><div className="table-empty"><div className="table-empty-icon">🏦</div><p>No bank templates found in selected range</p></div></td></tr>
+                    ) : filteredBankTemplates.map((tpl) => {
                       const tId = tpl.id || tpl._id
                       return (
                         <tr key={tId || tpl.code}>

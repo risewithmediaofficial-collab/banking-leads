@@ -128,7 +128,7 @@ function App() {
   }
 
   const initials = (user.name || 'U').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-  const isAdmin = user.role === 'admin'
+  const isAdmin = user.role === 'admin' || user.role === 'superadmin'
 
   return (
     <div className="app-shell">
@@ -151,7 +151,9 @@ function App() {
         <div className="topbar-user">
           <div className="topbar-user-info">
             <div className="topbar-user-name">{user.name}</div>
-            <div className="topbar-user-role">{isAdmin ? 'Administrator' : 'Field Executive'}</div>
+            <div className="topbar-user-role">
+              {user.role === 'superadmin' ? 'Super Administrator' : user.role === 'admin' ? 'Administrator' : 'Field Executive'}
+            </div>
           </div>
           <div className="topbar-user-avatar">{initials}</div>
           <button type="button" className="topbar-logout-btn" onClick={handleLogout} title="Logout">

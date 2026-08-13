@@ -189,7 +189,7 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   password: { type: String, required: true },
   phone: { type: String, trim: true },
-  role: { type: String, enum: ['admin', 'field'], default: 'field' },
+  role: { type: String, enum: ['superadmin', 'admin', 'field'], default: 'field' },
 }, schemaOptions)
 
 const bankTemplateSchema = new mongoose.Schema({
@@ -1179,7 +1179,8 @@ app.post('/api/users', asyncRoute(async (req, res) => {
   const exists = await User.exists({ $or: [{ username }, ...(email ? [{ email }] : [])] })
   if (exists) return res.status(409).json({ message: 'Employee username or email already exists' })
 
-  const user = await User.create({ name, email: email || username, username, password, phone: phone || '', role: 'field' })
+  const targetRole = ['superadmin', 'admin', 'field'].includes(req.body.role) ? req.body.role : 'field'
+  const user = await User.create({ name, email: email || username, username, password, phone: phone || '', role: targetRole })
   res.status(201).json({ success: true, user: user.toJSON() })
 }))
 
@@ -1189,7 +1190,7 @@ app.delete('/api/users/:userId', asyncRoute(async (req, res) => {
   }
   const user = await User.findById(req.params.userId)
   if (!user) return res.status(404).json({ message: 'User not found' })
-  if (user.role === 'admin') return res.status(403).json({ message: 'Cannot delete admin account' })
+  if (['admin', 'superadmin'].includes(user.role)) return res.status(403).json({ message: 'Cannot delete admin or superadmin account' })
   await User.findByIdAndDelete(req.params.userId)
   res.json({ success: true })
 }))
