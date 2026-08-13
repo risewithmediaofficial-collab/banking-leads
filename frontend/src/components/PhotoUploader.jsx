@@ -13,25 +13,46 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
   const uploadFiles = async (files, category) => {
     if (!files || !files.length) return
     setUploading(true)
+    const now = new Date()
+
+    // 1. Create instant local blob previews for 0ms latency display
+    const tempPhotos = Array.from(files).map((f) => ({
+      previewUrl: URL.createObjectURL(f),
+      category,
+      caption: '',
+      timestamp: now.toISOString(),
+      name: f.name,
+      tempId: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    }))
+
+    const initialPhotos = [...photos, ...tempPhotos]
+    onChange(initialPhotos)
+
     try {
       const fd = new FormData()
       Array.from(files).forEach((f) => fd.append('photos', f))
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       const data = await res.json()
-      if (data.success) {
-        const now = new Date()
-        const newPhotos = data.files.map((f) => ({
-          ...f,
-          category,
-          caption: '',
-          timestamp: now.toISOString(),
-          latitude: '',
-          longitude: '',
-        }))
-        onChange([...photos, ...newPhotos])
+      if (data.success && data.files?.length) {
+        // 2. Replace temp entries with server upload paths
+        const uploadedFiles = data.files
+        const updated = initialPhotos.map((p) => {
+          const matchIdx = tempPhotos.findIndex((t) => t.tempId === p.tempId)
+          if (matchIdx !== -1 && uploadedFiles[matchIdx]) {
+            const u = uploadedFiles[matchIdx]
+            return {
+              ...p,
+              ...u,
+              url: u.url || u.path,
+              previewUrl: p.previewUrl, // preserve local blob for instant session view
+            }
+          }
+          return p
+        })
+        onChange(updated)
       }
     } catch (err) {
-      console.error('Upload failed:', err)
+      console.error('Upload server sync failed:', err)
     } finally {
       setUploading(false)
     }

@@ -12,7 +12,7 @@ export function mediaUrl(input) {
   if (!input) return ''
   let path = typeof input === 'string'
     ? input
-    : (input.url || input.path || input.src || (input.filename ? `/uploads/${input.filename}` : ''))
+    : (input.previewUrl || input.url || input.path || input.src || (input.filename ? `/uploads/${input.filename}` : ''))
   if (!path) return ''
   
   // If path contains legacy http://localhost:3000 or 127.0.0.1 prefix, strip origin to make relative

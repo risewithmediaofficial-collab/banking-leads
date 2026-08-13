@@ -232,7 +232,8 @@ const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname) || '.jpg'
-    const safeName = (file.originalname || 'photo').replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 30)
+    const nameWithoutExt = path.basename(file.originalname, ext)
+    const safeName = (nameWithoutExt || 'photo').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30)
     cb(null, `site-photo-${Date.now()}-${Math.round(Math.random() * 1e4)}-${safeName}${ext.startsWith('.') ? '' : '.'}${ext}`)
   },
 })
