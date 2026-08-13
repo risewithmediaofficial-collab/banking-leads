@@ -243,6 +243,7 @@ const upload = multer({
 })
 
 app.use('/uploads', express.static(uploadsDir, { maxAge: '7d', etag: true }))
+app.use(express.static(uploadsDir, { maxAge: '7d', etag: true }))
 
 app.post('/api/upload', (req, res) => {
   upload.any()(req, res, (err) => {
