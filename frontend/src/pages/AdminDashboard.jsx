@@ -42,6 +42,10 @@ const SECTION_NAMES = {
   billing: 'Vendor Billing',
   employees: 'Employees',
   banks: 'Banks',
+  'lead-form': 'Bank Leads',
+  'task-form': 'All Tasks',
+  'vendor-bill-detail': 'Vendor Billing',
+  'report-detail': 'Technical Reports',
 }
 
 const STATUS_COLOR = { NEW: 'badge-blue', ASSIGNED: 'badge-amber', VISIT_STARTED: 'badge-amber', VISITED_SITE: 'badge-purple', DETAILS_UPDATED: 'badge-purple', SUBMITTED_FOR_VERIFICATION: 'badge-blue', VERIFIED: 'badge-green', REVISION_REQUIRED: 'badge-red', COMPLETED: 'badge-green' }
@@ -371,7 +375,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
     try {
       if (editingLeadId) { await onUpdateLead(editingLeadId, leadForm); showMsg('Lead updated') }
       else { await onCreateLead(leadForm); showMsg('Lead noted and saved') }
-      setEditingLeadId(''); setLeadForm(emptyLeadForm); setShowLeadModal(false)
+      setEditingLeadId(''); setLeadForm(emptyLeadForm); setShowLeadModal(false); setActiveSection('leads')
     } catch (err) { showMsg(err.message, 'error') }
   }
 
@@ -379,8 +383,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
     const leadId = lead.id || lead._id
     setEditingLeadId(leadId)
     setLeadForm({ customer: lead.customer || '', customerPhone: lead.customerPhone || '', bankCode: lead.bankCode || 'UJJ', branch: lead.branch || '', location: lead.location || '', loanType: lead.loanType || 'LAP', bankRefNo: lead.bankRefNo || '', receivedDate: lead.receivedDate || '', priority: lead.priority || 'Normal', notes: lead.notes || '', employeeId: lead.assignedTo || '' })
-    setShowLeadModal(true)
-    setActiveSection('leads')
+    setActiveSection('lead-form')
   }
 
   const handleDeleteLead = async (leadId) => {
@@ -418,7 +421,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
     const lead = leads.find((l) => (l.id || l._id) === leadId)
     if (!lead) return
     setTaskForm((prev) => ({ ...prev, customer: lead.customer || '', customerPhone: lead.customerPhone || '', bankCode: lead.bankCode || 'UJJ', branch: lead.branch || '', location: lead.location || '', loanType: lead.loanType || '', notes: lead.bankRefNo ? `Bank Ref: ${lead.bankRefNo}` : '', employeeId: lead.assignedTo || fieldUsers[0]?.id || '' }))
-    setActiveSection('task')
+    setActiveSection('task-form')
   }
 
   const [submittingTask, setSubmittingTask] = useState(false)
@@ -440,6 +443,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
       }
       setTaskForm({ customer: '', customerPhone: '', bankCode: 'UJJ', branch: '', location: '', loanType: '', dueDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'), notes: '', employeeId: '' })
       setSelectedLeadForTask('')
+      setActiveSection('tasks')
       onRefresh()
     } catch (err) {
       showMsg(err.message, 'error')
@@ -614,9 +618,9 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
               type="button"
               onClick={() => {
                 setActiveSection('overview')
-                setShowLeadModal(false)
-                setShowAddTask(false)
-                setSelectedJobId('')
+                setEditingJobForm(null)
+                setViewingBillJob(null)
+                setViewingReportJob(null)
               }}
               style={{ background: 'none', border: 'none', color: 'var(--primary-600)', cursor: 'pointer', padding: 0, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}
             >
@@ -629,17 +633,20 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                 <button
                   type="button"
                   onClick={() => {
-                    setShowLeadModal(false)
-                    setShowAddTask(false)
-                    setSelectedJobId('')
+                    if (activeSection === 'lead-form') setActiveSection('leads')
+                    else if (activeSection === 'task-form') setActiveSection('tasks')
+                    else if (activeSection === 'vendor-bill-detail') { setViewingBillJob(null); setActiveSection('billing') }
+                    else if (activeSection === 'report-detail') { setViewingReportJob(null); setActiveSection('report') }
+                    else if (editingJobForm) setEditingJobForm(null)
+                    else setActiveSection('overview')
                   }}
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: (showLeadModal || showAddTask || selectedJobId) ? 'var(--primary-600)' : 'var(--gray-800)',
-                    cursor: (showLeadModal || showAddTask || selectedJobId) ? 'pointer' : 'default',
+                    color: ['lead-form', 'task-form', 'vendor-bill-detail', 'report-detail'].includes(activeSection) || editingJobForm ? 'var(--primary-600)' : 'var(--gray-800)',
+                    cursor: 'pointer',
                     padding: 0,
-                    fontWeight: (showLeadModal || showAddTask || selectedJobId) ? 500 : 700
+                    fontWeight: ['lead-form', 'task-form', 'vendor-bill-detail', 'report-detail'].includes(activeSection) || editingJobForm ? 500 : 700
                   }}
                 >
                   {SECTION_NAMES[activeSection] || activeSection}
@@ -647,7 +654,7 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
               </>
             )}
 
-            {showLeadModal && (
+            {activeSection === 'lead-form' && (
               <>
                 <span style={{ color: 'var(--gray-400)' }}>/</span>
                 <span style={{ color: 'var(--gray-800)', fontWeight: 700 }}>
@@ -656,34 +663,47 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
               </>
             )}
 
-            {showAddTask && (
+            {activeSection === 'task-form' && (
               <>
                 <span style={{ color: 'var(--gray-400)' }}>/</span>
                 <span style={{ color: 'var(--gray-800)', fontWeight: 700 }}>Add New Task</span>
               </>
             )}
 
-            {selectedJobId && activeSection === 'verify' && (
+            {activeSection === 'vendor-bill-detail' && viewingBillJob && (
               <>
                 <span style={{ color: 'var(--gray-400)' }}>/</span>
-                <span style={{ color: 'var(--gray-800)', fontWeight: 700 }}>Verify Task</span>
+                <span style={{ color: 'var(--gray-800)', fontWeight: 700 }}>Vendor Bill ({viewingBillJob.customer})</span>
+              </>
+            )}
+
+            {activeSection === 'report-detail' && viewingReportJob && (
+              <>
+                <span style={{ color: 'var(--gray-400)' }}>/</span>
+                <span style={{ color: 'var(--gray-800)', fontWeight: 700 }}>Inspection Report ({viewingReportJob.customer})</span>
+              </>
+            )}
+
+            {editingJobForm && (
+              <>
+                <span style={{ color: 'var(--gray-400)' }}>/</span>
+                <span style={{ color: 'var(--gray-800)', fontWeight: 700 }}>Edit Inspection Form ({editingJobForm.customer})</span>
               </>
             )}
           </div>
 
           {/* Screen Back Button */}
-          {(activeSection !== 'overview' || showLeadModal || showAddTask || selectedJobId) && (
+          {activeSection !== 'overview' && (
             <button
               type="button"
               className="secondary-btn"
               onClick={() => {
-                if (showLeadModal || showAddTask || selectedJobId) {
-                  setShowLeadModal(false)
-                  setShowAddTask(false)
-                  setSelectedJobId('')
-                } else if (activeSection !== 'overview') {
-                  setActiveSection('overview')
-                }
+                if (activeSection === 'lead-form') setActiveSection('leads')
+                else if (activeSection === 'task-form') setActiveSection('tasks')
+                else if (activeSection === 'vendor-bill-detail') { setViewingBillJob(null); setActiveSection('billing') }
+                else if (activeSection === 'report-detail') { setViewingReportJob(null); setActiveSection('report') }
+                else if (editingJobForm) setEditingJobForm(null)
+                else setActiveSection('overview')
               }}
               style={{
                 display: 'inline-flex',
@@ -699,7 +719,12 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
                 color: 'var(--gray-700)'
               }}
             >
-              <ChevronLeft size={16} /> Back to Dashboard
+              <ChevronLeft size={16} />
+              {activeSection === 'lead-form' ? 'Back to Bank Leads' :
+               activeSection === 'task-form' ? 'Back to All Tasks' :
+               activeSection === 'vendor-bill-detail' ? 'Back to Vendor Billing' :
+               activeSection === 'report-detail' ? 'Back to Technical Reports' :
+               editingJobForm ? 'Back to Reports' : 'Back to Dashboard'}
             </button>
           )}
         </div>
@@ -864,115 +889,115 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
               </div>
             </div>
 
-            {/* Modal Popup for Add / Edit Lead */}
-            {showLeadModal && (
-              <div className="photo-lightbox" onClick={() => setShowLeadModal(false)}>
-                <div
-                  className="card"
-                  style={{ width: '100%', maxWidth: 650, margin: 20, maxHeight: '90vh', overflowY: 'auto', borderRadius: 16, boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="card-header" style={{ background: 'var(--brand-50)', padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--brand-600)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800 }}>
-                        <FolderPlus size={20} />
-                      </div>
-                      <h3 style={{ margin: 0, color: 'var(--brand-900)', fontSize: '1.1rem', fontWeight: 800 }}>
-                        {editingLeadId ? '✏️ Edit Lead Details' : '➕ Create New Bank Lead'}
-                      </h3>
-                    </div>
-                    <button
-                      type="button"
-                      style={{ background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'grid', placeItems: 'center', fontSize: '1.2rem', fontWeight: 800, color: 'var(--gray-700)', cursor: 'pointer' }}
-                      onClick={() => setShowLeadModal(false)}
-                    >
-                      ×
-                    </button>
-                  </div>
-
-                  <div className="card-body" style={{ padding: 22 }}>
-                    <form onSubmit={handleLeadSubmit}>
-                      <div className="form-row" style={{ marginBottom: 14 }}>
-                        <div className="form-field">
-                          <label className="form-label">Bank <span className="required">*</span></label>
-                          <select className="form-select" value={leadForm.bankCode} onChange={(e) => setLeadForm((p) => ({ ...p, bankCode: e.target.value }))}>
-                            <option value="UJJ">Ujjivan Small Finance Bank</option>
-                            <option value="NIVARA">Nivara Home Finance Limited</option>
-                            {bankTemplates.filter((t) => !['UJJ','NIVARA'].includes(t.code)).map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
-                          </select>
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Customer Name <span className="required">*</span></label>
-                          <input className="form-input" value={leadForm.customer} onChange={(e) => setLeadForm((p) => ({ ...p, customer: e.target.value }))} placeholder="Full name" required />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Customer Phone</label>
-                          <input className="form-input" value={leadForm.customerPhone} onChange={(e) => setLeadForm((p) => ({ ...p, customerPhone: e.target.value }))} placeholder="Mobile number" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Branch</label>
-                          <input className="form-input" value={leadForm.branch} onChange={(e) => setLeadForm((p) => ({ ...p, branch: e.target.value }))} placeholder="Bank branch" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Property Location</label>
-                          <input className="form-input" value={leadForm.location} onChange={(e) => setLeadForm((p) => ({ ...p, location: e.target.value }))} placeholder="Property address" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Loan / Case Type</label>
-                          <select className="form-select" value={leadForm.loanType} onChange={(e) => setLeadForm((p) => ({ ...p, loanType: e.target.value }))}>
-                            <option value="LAP">LAP</option><option value="HL">Home Loan</option>
-                            <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
-                          </select>
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Bank Ref / App No.</label>
-                          <input className="form-input" value={leadForm.bankRefNo} onChange={(e) => setLeadForm((p) => ({ ...p, bankRefNo: e.target.value }))} placeholder="Reference number" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Received Date</label>
-                          <input className="form-input" value={leadForm.receivedDate} onChange={(e) => setLeadForm((p) => ({ ...p, receivedDate: e.target.value }))} placeholder="dd.mm.yyyy" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Priority</label>
-                          <select className="form-select" value={leadForm.priority} onChange={(e) => setLeadForm((p) => ({ ...p, priority: e.target.value }))}>
-                            <option value="Normal">Normal</option><option value="Urgent">Urgent</option><option value="High">High</option>
-                          </select>
-                        </div>
-                        <div className="form-field full-width">
-                          <label className="form-label">Notes / Remarks</label>
-                          <input className="form-input" value={leadForm.notes} onChange={(e) => setLeadForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Any additional notes..." />
-                        </div>
-                      </div>
-                      <div className="btn-group" style={{ justifyContent: 'space-between', marginTop: 14, flexWrap: 'wrap', gap: 8 }}>
-                        <button
-                          type="button"
-                          className="btn btn-purple"
-                          onClick={() => setLeadForm({
-                            bankCode: 'UJJ',
-                            customer: 'K. Madhusudhanan',
-                            customerPhone: '9845123456',
-                            branch: 'Hosur Branch',
-                            location: 'Plot 24, Sri Kamatchi Nagar, Avalapalli, Hosur',
-                            loanType: 'HL',
-                            bankRefNo: `APP-${Math.floor(100000 + Math.random() * 900000)}`,
-                            receivedDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'),
-                            priority: 'Normal',
-                            notes: 'Sample lead for testing Excel reports & exports',
-                            employeeId: '',
-                          })}
-                        >
-                          ⚡ Fill Sample Lead
-                        </button>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button type="button" className="btn btn-secondary" onClick={() => setShowLeadModal(false)}>Cancel</button>
-                          <button type="submit" className="btn btn-primary">{editingLeadId ? 'Update Lead' : '💾 Save Lead'}</button>
-                        </div>
-                      </div>
-                    </form>
-                  </div>
+        {/* ══ ADD / EDIT BANK LEAD PAGE ══ */}
+        {activeSection === 'lead-form' && (
+          <div className="card" style={{ maxWidth: 820, margin: '0 auto 30px', borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid var(--gray-200)' }}>
+            <div className="card-header" style={{ background: 'linear-gradient(135deg, var(--brand-50), #eff6ff)', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--gray-200)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--brand-600)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800 }}>
+                  <FolderPlus size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--brand-900)', fontSize: '1.15rem', fontWeight: 800 }}>
+                    {editingLeadId ? '✏️ Edit Bank Lead Details' : '➕ Create New Bank Lead'}
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: 'var(--gray-600)' }}>
+                    Enter customer contact, bank branch, and reference details below
+                  </p>
                 </div>
               </div>
-            )}
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setActiveSection('leads')}
+                style={{ fontWeight: 600 }}
+              >
+                ← Back to Bank Leads
+              </button>
+            </div>
+
+            <div className="card-body" style={{ padding: 26 }}>
+              <form onSubmit={handleLeadSubmit}>
+                <div className="form-row" style={{ marginBottom: 16 }}>
+                  <div className="form-field">
+                    <label className="form-label">Bank <span className="required">*</span></label>
+                    <select className="form-select" value={leadForm.bankCode} onChange={(e) => setLeadForm((p) => ({ ...p, bankCode: e.target.value }))}>
+                      <option value="UJJ">Ujjivan Small Finance Bank</option>
+                      <option value="NIVARA">Nivara Home Finance Limited</option>
+                      {bankTemplates.filter((t) => !['UJJ','NIVARA'].includes(t.code)).map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Customer Name <span className="required">*</span></label>
+                    <input className="form-input" value={leadForm.customer} onChange={(e) => setLeadForm((p) => ({ ...p, customer: e.target.value }))} placeholder="Full name" required />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Customer Phone</label>
+                    <input className="form-input" value={leadForm.customerPhone} onChange={(e) => setLeadForm((p) => ({ ...p, customerPhone: e.target.value }))} placeholder="Mobile number" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Branch</label>
+                    <input className="form-input" value={leadForm.branch} onChange={(e) => setLeadForm((p) => ({ ...p, branch: e.target.value }))} placeholder="Bank branch" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Property Location</label>
+                    <input className="form-input" value={leadForm.location} onChange={(e) => setLeadForm((p) => ({ ...p, location: e.target.value }))} placeholder="Property address" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Loan / Case Type</label>
+                    <select className="form-select" value={leadForm.loanType} onChange={(e) => setLeadForm((p) => ({ ...p, loanType: e.target.value }))}>
+                      <option value="LAP">LAP</option><option value="HL">Home Loan</option>
+                      <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Bank Ref / App No.</label>
+                    <input className="form-input" value={leadForm.bankRefNo} onChange={(e) => setLeadForm((p) => ({ ...p, bankRefNo: e.target.value }))} placeholder="Reference number" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Received Date</label>
+                    <input className="form-input" value={leadForm.receivedDate} onChange={(e) => setLeadForm((p) => ({ ...p, receivedDate: e.target.value }))} placeholder="dd.mm.yyyy" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Priority</label>
+                    <select className="form-select" value={leadForm.priority} onChange={(e) => setLeadForm((p) => ({ ...p, priority: e.target.value }))}>
+                      <option value="Normal">Normal</option><option value="Urgent">Urgent</option><option value="High">High</option>
+                    </select>
+                  </div>
+                  <div className="form-field full-width">
+                    <label className="form-label">Notes / Remarks</label>
+                    <textarea className="form-textarea" value={leadForm.notes} onChange={(e) => setLeadForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Any additional notes..." rows={3} />
+                  </div>
+                </div>
+                <div className="btn-group" style={{ justifyContent: 'space-between', marginTop: 16, flexWrap: 'wrap', gap: 10, paddingTop: 16, borderTop: '1px solid var(--gray-200)' }}>
+                  <button
+                    type="button"
+                    className="btn btn-purple"
+                    onClick={() => setLeadForm({
+                      bankCode: 'UJJ',
+                      customer: 'K. Madhusudhanan',
+                      customerPhone: '9845123456',
+                      branch: 'Hosur Branch',
+                      location: 'Plot 24, Sri Kamatchi Nagar, Avalapalli, Hosur',
+                      loanType: 'HL',
+                      bankRefNo: `APP-${Math.floor(100000 + Math.random() * 900000)}`,
+                      receivedDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'),
+                      priority: 'Normal',
+                      notes: 'Sample lead for testing Excel reports & exports',
+                      employeeId: '',
+                    })}
+                  >
+                    ⚡ Fill Sample Lead Data
+                  </button>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => setActiveSection('leads')}>Cancel</button>
+                    <button type="submit" className="btn btn-primary btn-lg">{editingLeadId ? '💾 Update Lead' : '💾 Save New Lead →'}</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
             {/* Leads Table */}
             <div className="table-container">
@@ -1090,97 +1115,109 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
               </div>
             </div>
 
-            {/* Add Task CTA & Inline Form */}
+            {/* Add Task CTA Header */}
             <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button type="button" className="btn btn-primary" onClick={() => setShowAddTask((v) => !v)}>{showAddTask ? 'Close' : 'Add Task'}</button>
-                <div style={{ color: 'var(--gray-600)', fontWeight: 600 }}>Quickly create and assign a new task</div>
-              </div>
-              <div style={{ color: 'var(--gray-500)', fontSize: '0.9rem' }}>
-                Use the highlighted button to open the task form inline.
+                <button type="button" className="btn btn-primary" onClick={() => setActiveSection('task-form')}>+ Add New Task</button>
+                <div style={{ color: 'var(--gray-600)', fontWeight: 600 }}>Create and assign a new field inspection task</div>
               </div>
             </div>
 
-            {showAddTask && (
-              <>
-                <div className="modal-backdrop" onClick={() => setShowAddTask(false)} />
-                <div className="modal" role="dialog" aria-modal="true" aria-labelledby="addTaskTitle" onClick={(e) => e.stopPropagation()}>
-                  <div className="modal-header">
-                    <h3 id="addTaskTitle">New Task Details</h3>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      {selectedLeadForTask && <span className="badge badge-blue">From Lead: {leads.find((l) => (l.id || l._id) === selectedLeadForTask)?.customer}</span>}
-                      <button type="button" className="secondary-btn modal-close" onClick={() => setShowAddTask(false)}>Close</button>
-                    </div>
-                  </div>
-                  <div className="modal-body">
-                    <div style={{ marginBottom: 12 }}>
-                      <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>Quick fill from existing lead</label>
-                      <select className="form-select" style={{ maxWidth: 420 }} value={selectedLeadForTask} onChange={(e) => selectLeadForTask(e.target.value)}>
-                        <option value="">— Select a lead to auto-fill —</option>
-                        {leads.map((lead) => {
-                          const lid = lead.id || lead._id
-                          return <option key={lid} value={lid}>{lead.customer} — {lead.bankCode} — {lead.branch}</option>
-                        })}
-                      </select>
-                    </div>
+        {/* ══ ADD / ASSIGN TASK PAGE ══ */}
+        {activeSection === 'task-form' && (
+          <div className="card" style={{ maxWidth: 850, margin: '0 auto 30px', borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid var(--gray-200)' }}>
+            <div className="card-header" style={{ background: 'linear-gradient(135deg, #fff7ed, #fef3c7)', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--gray-200)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--amber-600)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800 }}>
+                  <PlusCircle size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: '#78350f', fontSize: '1.15rem', fontWeight: 800 }}>
+                    📋 Add & Assign New Task
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#92400e' }}>
+                    Create a task for field inspection and assign to a field visitor
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setActiveSection('tasks')}
+                style={{ fontWeight: 600 }}
+              >
+                ← Back to All Tasks
+              </button>
+            </div>
 
-                    <form onSubmit={handleTaskSubmit}>
-                      <div className="form-row" style={{ marginBottom: 14 }}>
-                        <div className="form-field">
-                          <label className="form-label">Bank</label>
-                          <select className="form-select" value={taskForm.bankCode} onChange={(e) => setTaskForm((p) => ({ ...p, bankCode: e.target.value }))}>
-                            <option value="UJJ">Ujjivan Small Finance Bank</option>
-                            <option value="NIVARA">Nivara Home Finance Limited</option>
-                          </select>
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Customer Name <span className="required">*</span></label>
-                          <input className="form-input" value={taskForm.customer} onChange={(e) => setTaskForm((p) => ({ ...p, customer: e.target.value }))} placeholder="Customer full name" required />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Customer Phone</label>
-                          <input className="form-input" value={taskForm.customerPhone} onChange={(e) => setTaskForm((p) => ({ ...p, customerPhone: e.target.value }))} placeholder="Mobile number" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Branch</label>
-                          <input className="form-input" value={taskForm.branch} onChange={(e) => setTaskForm((p) => ({ ...p, branch: e.target.value }))} placeholder="Bank branch" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Property Location</label>
-                          <input className="form-input" value={taskForm.location} onChange={(e) => setTaskForm((p) => ({ ...p, location: e.target.value }))} placeholder="Property address" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Loan / Case Type</label>
-                          <select className="form-select" value={taskForm.loanType} onChange={(e) => setTaskForm((p) => ({ ...p, loanType: e.target.value }))}>
-                            <option value="LAP">LAP</option><option value="HL">Home Loan</option>
-                            <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
-                          </select>
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Due Date</label>
-                          <input className="form-input" value={taskForm.dueDate} onChange={(e) => setTaskForm((p) => ({ ...p, dueDate: e.target.value }))} placeholder="dd.mm.yyyy" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Assign To Field Executive <span className="required">*</span></label>
-                          <select className="form-select" value={taskForm.employeeId} onChange={(e) => setTaskForm((p) => ({ ...p, employeeId: e.target.value }))}>
-                            <option value="">— Select Executive —</option>
-                            {fieldUsers.map((emp) => <option key={emp.id || emp._id} value={emp.id || emp._id}>{emp.name} ({emp.email})</option>)}
-                          </select>
-                        </div>
-                        <div className="form-field full-width">
-                          <label className="form-label">Task Notes / Instructions</label>
-                          <textarea className="form-textarea" value={taskForm.notes} onChange={(e) => setTaskForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Special instructions, bank reference, remarks..." rows={3} />
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                        <button type="button" className="secondary-btn" onClick={() => setShowAddTask(false)}>Cancel</button>
-                        <button type="submit" className="btn btn-primary btn-lg" disabled={submittingTask}>{submittingTask ? 'Processing...' : 'Create & Assign Task →'}</button>
-                      </div>
-                    </form>
+            <div className="card-body" style={{ padding: 26 }}>
+              <div style={{ marginBottom: 20, background: '#f8fafc', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                <label className="form-label" style={{ marginBottom: 6, display: 'block', fontWeight: 700, color: 'var(--brand-800)' }}>⚡ Quick fill from existing Bank Lead</label>
+                <select className="form-select" value={selectedLeadForTask} onChange={(e) => selectLeadForTask(e.target.value)}>
+                  <option value="">— Select a lead to auto-fill customer details —</option>
+                  {leads.map((lead) => {
+                    const lid = lead.id || lead._id
+                    return <option key={lid} value={lid}>{lead.customer} — {lead.bankCode} — {lead.branch}</option>
+                  })}
+                </select>
+              </div>
+
+              <form onSubmit={handleTaskSubmit}>
+                <div className="form-row" style={{ marginBottom: 16 }}>
+                  <div className="form-field">
+                    <label className="form-label">Bank <span className="required">*</span></label>
+                    <select className="form-select" value={taskForm.bankCode} onChange={(e) => setTaskForm((p) => ({ ...p, bankCode: e.target.value }))}>
+                      <option value="UJJ">Ujjivan Small Finance Bank</option>
+                      <option value="NIVARA">Nivara Home Finance Limited</option>
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Customer Name <span className="required">*</span></label>
+                    <input className="form-input" value={taskForm.customer} onChange={(e) => setTaskForm((p) => ({ ...p, customer: e.target.value }))} placeholder="Customer full name" required />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Customer Phone</label>
+                    <input className="form-input" value={taskForm.customerPhone} onChange={(e) => setTaskForm((p) => ({ ...p, customerPhone: e.target.value }))} placeholder="Mobile number" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Branch</label>
+                    <input className="form-input" value={taskForm.branch} onChange={(e) => setTaskForm((p) => ({ ...p, branch: e.target.value }))} placeholder="Bank branch" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Property Location</label>
+                    <input className="form-input" value={taskForm.location} onChange={(e) => setTaskForm((p) => ({ ...p, location: e.target.value }))} placeholder="Property address" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Loan / Case Type</label>
+                    <select className="form-select" value={taskForm.loanType} onChange={(e) => setTaskForm((p) => ({ ...p, loanType: e.target.value }))}>
+                      <option value="LAP">LAP</option><option value="HL">Home Loan</option>
+                      <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Due Date</label>
+                    <input className="form-input" value={taskForm.dueDate} onChange={(e) => setTaskForm((p) => ({ ...p, dueDate: e.target.value }))} placeholder="dd.mm.yyyy" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Assign To Field Executive <span className="required">*</span></label>
+                    <select className="form-select" value={taskForm.employeeId} onChange={(e) => setTaskForm((p) => ({ ...p, employeeId: e.target.value }))}>
+                      <option value="">— Select Executive —</option>
+                      {fieldUsers.map((emp) => <option key={emp.id || emp._id} value={emp.id || emp._id}>{emp.name} ({emp.email})</option>)}
+                    </select>
+                  </div>
+                  <div className="form-field full-width">
+                    <label className="form-label">Task Notes / Instructions</label>
+                    <textarea className="form-textarea" value={taskForm.notes} onChange={(e) => setTaskForm((p) => ({ ...p, notes: e.target.value }))} placeholder="Special instructions, bank reference, remarks..." rows={3} />
                   </div>
                 </div>
-              </>
-            )}
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 16, borderTop: '1px solid var(--gray-200)' }}>
+                  <button type="button" className="secondary-btn" onClick={() => setActiveSection('tasks')}>Cancel</button>
+                  <button type="submit" className="btn btn-primary btn-lg" disabled={submittingTask}>{submittingTask ? 'Processing...' : '🚀 Create & Assign Task →'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
             <div className="jobs-grid">
               {filteredTasks.length === 0 ? (
@@ -1417,313 +1454,306 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
           </div>
         )}
 
-        {/* ══ REPORT VIEW / EDIT MODAL ══ */}
-        {viewingReportJob && (
-          <div className="photo-lightbox" onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false) }}>
-            <div
-              className="card"
-              style={{ width: '100%', maxWidth: 780, margin: 20, maxHeight: '92vh', overflowY: 'auto', borderRadius: 'var(--radius-2xl)', border: '1px solid var(--gray-200)', boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* ── Modal Header ── */}
-              <div style={{ background: 'linear-gradient(135deg, #eef2ff, #f0fdf4)', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--gray-200)', position: 'sticky', top: 0, zIndex: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '1.2rem' }}>📋</div>
-                  <div>
-                    <h3 style={{ margin: 0, color: '#1e1b4b', fontSize: '1.1rem', fontWeight: 800 }}>
-                      {isEditingReportModal ? '✏️ Edit Inspection Details' : '👁️ View Inspection Report'}
-                    </h3>
-                    <div style={{ fontSize: '0.78rem', color: '#4338ca', fontWeight: 600, marginTop: 2 }}>
-                      {viewingReportJob.customer} · {viewingReportJob.bank || viewingReportJob.bankCode} · {viewingReportJob.branch}
-                    </div>
+        {/* ══ REPORT VIEW PAGE ══ */}
+        {activeSection === 'report-detail' && viewingReportJob && (
+          <div
+            className="card"
+            style={{ width: '100%', maxWidth: 860, margin: '0 auto 30px', borderRadius: 16, border: '1px solid var(--gray-200)', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
+          >
+            {/* ── Page Header ── */}
+            <div style={{ background: 'linear-gradient(135deg, #eef2ff, #f0fdf4)', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--gray-200)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '1.2rem' }}>📋</div>
+                <div>
+                  <h3 style={{ margin: 0, color: '#1e1b4b', fontSize: '1.15rem', fontWeight: 800 }}>
+                    👁️ View Technical Inspection Report
+                  </h3>
+                  <div style={{ fontSize: '0.82rem', color: '#4338ca', fontWeight: 600, marginTop: 2 }}>
+                    {viewingReportJob.customer} · {viewingReportJob.bank || viewingReportJob.bankCode} · {viewingReportJob.branch}
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {!isEditingReportModal && (
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      style={{ fontSize: '0.8rem', padding: '7px 14px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                      onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false); setEditingJobForm(viewingReportJob); window.scrollTo({ top: 120, behavior: 'smooth' }) }}
-                    >
-                      ✏️ Edit Form
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    style={{ background: 'rgba(0,0,0,0.07)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'grid', placeItems: 'center', fontSize: '1.2rem', fontWeight: 800, color: '#374151', cursor: 'pointer' }}
-                    onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false) }}
-                    title="Close"
-                  >
-                    ×
-                  </button>
-                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ fontSize: '0.85rem', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false); setEditingJobForm(viewingReportJob); window.scrollTo({ top: 120, behavior: 'smooth' }) }}
+                >
+                  ✏️ Edit Full Inspection Form
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false); setActiveSection('report') }}
+                >
+                  ← Back to Reports
+                </button>
+              </div>
+            </div>
+
+            {/* ── Page Body ── */}
+            <div style={{ padding: 24, display: 'grid', gap: 20 }}>
+              {/* Status & Assignment Row */}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: '#f8fafc', padding: '12px 18px', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                <span className={`badge ${viewingReportJob.status === 'VERIFIED' ? 'badge-green' : 'badge-blue'}`} style={{ fontSize: '0.82rem' }}>
+                  {viewingReportJob.status?.replace(/_/g, ' ')}
+                </span>
+                <span style={{ fontSize: '0.85rem', color: '#475569' }}>👷 Executive: <strong>{viewingReportJob.assignedEmployee || '—'}</strong></span>
+                {viewingReportJob.visitedAt && (
+                  <span style={{ fontSize: '0.85rem', color: '#475569' }}>🗓️ Visited: <strong>{new Date(viewingReportJob.visitedAt).toLocaleDateString('en-IN')}</strong></span>
+                )}
+                {viewingReportJob.sitePhotos?.length > 0 && (
+                  <span style={{ fontSize: '0.85rem', color: '#059669', fontWeight: 700 }}>📷 {viewingReportJob.sitePhotos.length} Photos Attached</span>
+                )}
               </div>
 
-              {/* ── Modal Body: View Mode ── */}
-              <div style={{ padding: 24, display: 'grid', gap: 20 }}>
+              {/* ── SECTION RENDERER ── */}
+              {(() => {
+                const v = viewingReportJob.visitDetails || {}
+                const sectionStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }
+                const headerStyle = { background: 'linear-gradient(90deg, #f0f9ff, #e0f2fe)', padding: '10px 16px', fontWeight: 800, fontSize: '0.82rem', color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #bae6fd' }
+                const gridStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: '#e5e7eb' }
+                const cellStyle = { background: '#fff', padding: '10px 14px' }
+                const labelStyle = { fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }
+                const valStyle = { fontSize: '0.9rem', fontWeight: 600, color: '#1e293b', wordBreak: 'break-word' }
+                const dash = <span style={{ color: '#cbd5e1' }}>—</span>
 
-                {/* Status & Assignment Row */}
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: '#f8fafc', padding: '10px 16px', borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                  <span className={`badge ${viewingReportJob.status === 'VERIFIED' ? 'badge-green' : 'badge-blue'}`} style={{ fontSize: '0.78rem' }}>
-                    {viewingReportJob.status?.replace(/_/g, ' ')}
-                  </span>
-                  <span style={{ fontSize: '0.82rem', color: '#475569' }}>👷 <strong>{viewingReportJob.assignedEmployee || '—'}</strong></span>
-                  {viewingReportJob.visitedAt && (
-                    <span style={{ fontSize: '0.82rem', color: '#475569' }}>🗓️ Visited: <strong>{new Date(viewingReportJob.visitedAt).toLocaleDateString('en-IN')}</strong></span>
-                  )}
-                  {viewingReportJob.sitePhotos?.length > 0 && (
-                    <span style={{ fontSize: '0.82rem', color: '#059669', fontWeight: 700 }}>📷 {viewingReportJob.sitePhotos.length} Photos</span>
-                  )}
-                </div>
+                const Field = ({ label, value, full }) => (
+                  <div style={{ ...cellStyle, gridColumn: full ? '1 / -1' : 'auto' }}>
+                    <div style={labelStyle}>{label}</div>
+                    <div style={valStyle}>{value !== undefined && value !== null && value !== '' ? String(value) : dash}</div>
+                  </div>
+                )
 
-                {/* ── SECTION RENDERER ── */}
-                {(() => {
-                  const v = viewingReportJob.visitDetails || {}
-                  const sectionStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }
-                  const headerStyle = { background: 'linear-gradient(90deg, #f0f9ff, #e0f2fe)', padding: '10px 16px', fontWeight: 800, fontSize: '0.82rem', color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #bae6fd' }
-                  const gridStyle = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: '#e5e7eb' }
-                  const cellStyle = { background: '#fff', padding: '10px 14px' }
-                  const labelStyle = { fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }
-                  const valStyle = { fontSize: '0.9rem', fontWeight: 600, color: '#1e293b', wordBreak: 'break-word' }
-                  const dash = <span style={{ color: '#cbd5e1' }}>—</span>
-
-                  const Field = ({ label, value, full }) => (
-                    <div style={{ ...cellStyle, gridColumn: full ? '1 / -1' : 'auto' }}>
-                      <div style={labelStyle}>{label}</div>
-                      <div style={valStyle}>{value !== undefined && value !== null && value !== '' ? String(value) : dash}</div>
+                return (
+                  <>
+                    {/* 1. Case & Reference */}
+                    <div style={sectionStyle}>
+                      <div style={headerStyle}>📑 Case & Reference Information</div>
+                      <div style={gridStyle}>
+                        <Field label="Reference No" value={v.refNo || v.caseRefNo} />
+                        <Field label="Report Date" value={v.reportDate || v.dateOfInspection} />
+                        <Field label="Case Type" value={v.caseType || v.purposeOfValuation} />
+                        <Field label="Branch Name" value={v.branchName} />
+                        <Field label="Valuer Name" value={v.valuerName} />
+                        <Field label="Contacted Person" value={v.contactedPerson || v.contactPersonMobile} />
+                      </div>
                     </div>
-                  )
 
-                  return (
-                    <>
-                      {/* 1. Case & Reference */}
+                    {/* 2. Applicant */}
+                    <div style={sectionStyle}>
+                      <div style={headerStyle}>👤 Applicant & Owner Details</div>
+                      <div style={gridStyle}>
+                        <Field label="Applicant Name" value={v.applicantName || viewingReportJob.customer} />
+                        <Field label="Co-Applicant" value={v.coApplicantName} />
+                        <Field label="Owner Name" value={v.ownerName || v.propertyOwnerName} />
+                        <Field label="Relationship with Applicant" value={v.relationshipWithApplicant || v.relationship} />
+                        <Field label="Customer ID" value={v.customerId || v.clientId} />
+                        <Field label="Applicant Contact" value={v.applicantContact} />
+                      </div>
+                    </div>
+
+                    {/* 3. Property Details */}
+                    <div style={sectionStyle}>
+                      <div style={headerStyle}>🏠 Property Details</div>
+                      <div style={gridStyle}>
+                        <Field label="Property Type" value={v.propertyType} />
+                        <Field label="Property Sub-Type" value={v.propertySubType} />
+                        <Field label="Current Usage" value={v.currentUsage} />
+                        <Field label="Permitted Usage" value={v.permittedUsage || v.approvedUsage} />
+                        <Field label="Survey Number" value={v.surveyNumber || v.newSurveyNumber} />
+                        <Field label="Plot / Door Number" value={v.plotNumber || v.doorNumber || v.propertyNumber} />
+                        <Field label="Village / Panchayat" value={v.village || v.panchayat} />
+                        <Field label="Taluk" value={v.taluk} />
+                        <Field label="District" value={v.district} />
+                        <Field label="State" value={v.state} />
+                        <Field label="Pincode" value={v.pincode} />
+                        <Field label="Zonal Classification" value={v.zonalClassification} />
+                        <Field label="Site Address" value={v.siteAddress} full />
+                        <Field label="Document Address" value={v.documentAddress} full />
+                        <Field label="Landmark" value={v.nearestLandmark || v.landmark} full />
+                      </div>
+                    </div>
+
+                    {/* 4. Location & Access */}
+                    <div style={sectionStyle}>
+                      <div style={headerStyle}>📍 Location & Access</div>
+                      <div style={gridStyle}>
+                        <Field label="Distance from Branch (km)" value={v.distanceFromBranch} />
+                        <Field label="Distance from City" value={v.distanceFromCity} />
+                        <Field label="Approach Road" value={v.approachRoadWidth || v.roadWidth} />
+                        <Field label="Road Condition" value={v.approachRoadCondition} />
+                        <Field label="Nearest Bus Stop" value={v.busStop} />
+                        <Field label="Railway Station" value={v.railwayStation} />
+                        <Field label="Class of Locality" value={v.classOfLocality} />
+                        <Field label="Marketability" value={v.marketability} />
+                        <Field label="Nearby Amenities" value={v.nearbyAmenities} full />
+                        <Field label="Latitude" value={v.latitude} />
+                        <Field label="Longitude" value={v.longitude} />
+                      </div>
+                    </div>
+
+                    {/* 5. Area & Construction */}
+                    <div style={sectionStyle}>
+                      <div style={headerStyle}>📐 Area & Construction Details</div>
+                      <div style={gridStyle}>
+                        <Field label="Plot / Land Area" value={v.plotArea || v.siteAreaActual} />
+                        <Field label="UDS Area" value={v.udsArea} />
+                        <Field label="Carpet Area (sq ft)" value={v.carpetArea} />
+                        <Field label="Built-up Area (sq ft)" value={v.builtUpArea || v.actualBUA} />
+                        <Field label="Number of Floors" value={v.numberOfFloorsAsBuilt || v.floors} />
+                        <Field label="Number of Rooms" value={v.numberOfRooms || v.rooms} />
+                        <Field label="Type of Structure" value={v.typeOfStructure} />
+                        <Field label="Construction Type" value={v.typeOfConstruction} />
+                        <Field label="Roof" value={v.roof} />
+                        <Field label="Flooring" value={v.flooring} />
+                        <Field label="Year of Construction" value={v.yearOfConstruction} />
+                        <Field label="Age of Property (yrs)" value={v.ageOfProperty || v.propertyAge} />
+                        <Field label="Residual Life (yrs)" value={v.residualLife} />
+                        <Field label="Construction Quality" value={v.constructionQuality} />
+                        <Field label="Construction Stage" value={v.constructionStage} />
+                        <Field label="Plot Shape" value={v.plotShape} />
+                      </div>
+                    </div>
+
+                    {/* 6. Occupancy */}
+                    <div style={sectionStyle}>
+                      <div style={headerStyle}>🏡 Occupancy & Identification</div>
+                      <div style={gridStyle}>
+                        <Field label="Present Occupancy" value={v.presentOccupancy || v.occupancy} />
+                        <Field label="Occupant Name" value={v.occupantName} />
+                        <Field label="Occupant Relationship" value={v.occupantRelationship} />
+                        <Field label="Property Identified Through" value={v.identificationMethod || v.identifiedThrough} />
+                      </div>
+                    </div>
+
+                    {/* 7. Boundaries */}
+                    <div style={sectionStyle}>
+                      <div style={{ ...headerStyle, background: 'linear-gradient(90deg, #fefce8, #fef9c3)', color: '#854d0e', borderBottom: '1px solid #fde68a' }}>📍 Boundary Details</div>
+                      <div style={gridStyle}>
+                        <Field label="North (as per Document)" value={v.northBoundaryDoc} />
+                        <Field label="North (as at Site)" value={v.northBoundarySite} />
+                        <Field label="South (as per Document)" value={v.southBoundaryDoc} />
+                        <Field label="South (as at Site)" value={v.southBoundarySite} />
+                        <Field label="East (as per Document)" value={v.eastBoundaryDoc} />
+                        <Field label="East (as at Site)" value={v.eastBoundarySite} />
+                        <Field label="West (as per Document)" value={v.westBoundaryDoc} />
+                        <Field label="West (as at Site)" value={v.westBoundarySite} />
+                        <Field label="Boundaries Matching" value={v.boundariesMatching === true || v.boundariesMatching === 'Yes' ? '✅ Yes' : v.boundariesMatching === false || v.boundariesMatching === 'No' ? '❌ No' : v.boundariesMatching} />
+                        <Field label="Boundary Remarks" value={v.boundaryDifferenceRemarks} />
+                      </div>
+                    </div>
+
+                    {/* 8. Approvals */}
+                    <div style={sectionStyle}>
+                      <div style={headerStyle}>📜 Approvals & Documents</div>
+                      <div style={gridStyle}>
+                        <Field label="Building Approval" value={v.buildingApprovalAvailable ? `✅ Available (${v.buildingApprovalNumber || ''})` : '❌ Not Available'} />
+                        <Field label="DTCP Approval" value={v.dtcpApproval} />
+                        <Field label="HNTDA Approval" value={v.hntdaApproval} />
+                        <Field label="RERA" value={v.rera} />
+                        <Field label="Sanction Plan Verified" value={v.sanctionPlanVerified ? '✅ Yes' : '❌ No'} />
+                        <Field label="Construction as per Plan" value={v.constructionAsPerPlan ? '✅ Yes' : (v.deviationFromPlan ? '❌ Deviations found' : '—')} />
+                        <Field label="Ownership Type" value={v.ownershipType} />
+                        <Field label="Documents Verified" value={v.documentsVerified ? '✅ Verified' : (v.documentsVerified === false ? '❌ Not Verified' : v.documentsVerified)} />
+                        <Field label="FSR Permitted" value={v.fsrPermitted} />
+                        <Field label="FSR Actual" value={v.fsrActual} />
+                      </div>
+                    </div>
+
+                    {/* 9. Valuation */}
+                    <div style={{ ...sectionStyle, border: '1.5px solid #bbf7d0' }}>
+                      <div style={{ ...headerStyle, background: 'linear-gradient(90deg, #f0fdf4, #dcfce7)', color: '#166534', borderBottom: '1px solid #86efac' }}>💰 Valuation Details</div>
+                      <div style={gridStyle}>
+                        <Field label="Present Market Rate" value={v.presentMarketRate ? `₹${Number(v.presentMarketRate).toLocaleString('en-IN')}/sq.ft` : undefined} />
+                        <Field label="Guideline Value" value={v.guidelineValue ? `₹${Number(v.guidelineValue).toLocaleString('en-IN')}/sq.ft` : undefined} />
+                        <Field label="Land Value" value={v.landValue ? `₹${Number(v.landValue).toLocaleString('en-IN')}` : undefined} />
+                        <Field label="Net Construction Value" value={v.netConstructionValue ? `₹${Number(v.netConstructionValue).toLocaleString('en-IN')}` : undefined} />
+                        <Field label="Depreciation %" value={v.depreciationPercent} />
+                        <Field label="Amenities Value" value={v.amenitiesValue ? `₹${Number(v.amenitiesValue).toLocaleString('en-IN')}` : undefined} />
+                        <Field label="Total Property Value" value={v.totalPropertyValue || v.totalValue ? `₹${Number(v.totalPropertyValue || v.totalValue).toLocaleString('en-IN')}` : undefined} />
+                        <Field label="Present Market Value" value={v.presentMarketValue ? `₹${Number(v.presentMarketValue).toLocaleString('en-IN')}` : undefined} />
+                        <Field label="Realizable Value" value={v.realizableValue ? `₹${Number(v.realizableValue).toLocaleString('en-IN')}` : undefined} />
+                        <Field label="Forced Sale Value" value={v.forcedSaleValue ? `₹${Number(v.forcedSaleValue).toLocaleString('en-IN')}` : undefined} />
+                        <Field label="Value in Words" value={v.valueInWords} full />
+                      </div>
+                    </div>
+
+                    {/* 10. Observations */}
+                    {(v.observation || v.remarks) && (
                       <div style={sectionStyle}>
-                        <div style={headerStyle}>📑 Case & Reference Information</div>
-                        <div style={gridStyle}>
-                          <Field label="Reference No" value={v.refNo || v.caseRefNo} />
-                          <Field label="Report Date" value={v.reportDate || v.dateOfInspection} />
-                          <Field label="Case Type" value={v.caseType || v.purposeOfValuation} />
-                          <Field label="Branch Name" value={v.branchName} />
-                          <Field label="Valuer Name" value={v.valuerName} />
-                          <Field label="Contacted Person" value={v.contactedPerson || v.contactPersonMobile} />
+                        <div style={headerStyle}>📝 Observations & Remarks</div>
+                        <div style={{ padding: 14, display: 'grid', gap: 12 }}>
+                          {v.observation && (
+                            <div>
+                              <div style={labelStyle}>Observation</div>
+                              <div style={{ ...valStyle, fontWeight: 500, fontSize: '0.85rem', lineHeight: 1.6, color: '#374151' }}>{v.observation}</div>
+                            </div>
+                          )}
+                          {v.remarks && (
+                            <div>
+                              <div style={labelStyle}>Remarks</div>
+                              <div style={{ ...valStyle, fontWeight: 500, fontSize: '0.85rem', lineHeight: 1.6, color: '#374151' }}>{v.remarks}</div>
+                            </div>
+                          )}
                         </div>
                       </div>
+                    )}
 
-                      {/* 2. Applicant */}
+                    {/* 11. Site Photos */}
+                    {viewingReportJob.sitePhotos?.length > 0 && (
                       <div style={sectionStyle}>
-                        <div style={headerStyle}>👤 Applicant & Owner Details</div>
-                        <div style={gridStyle}>
-                          <Field label="Applicant Name" value={v.applicantName || viewingReportJob.customer} />
-                          <Field label="Co-Applicant" value={v.coApplicantName} />
-                          <Field label="Owner Name" value={v.ownerName || v.propertyOwnerName} />
-                          <Field label="Relationship with Applicant" value={v.relationshipWithApplicant || v.relationship} />
-                          <Field label="Customer ID" value={v.customerId || v.clientId} />
-                          <Field label="Applicant Contact" value={v.applicantContact} />
+                        <div style={headerStyle}>📷 Site Photos ({viewingReportJob.sitePhotos.length})</div>
+                        <div style={{ padding: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          {viewingReportJob.sitePhotos.map((photo, pIdx) => (
+                            <a key={pIdx} href={mediaUrl(photo.url)} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={mediaUrl(photo.url)}
+                                alt={photo.name || `Photo ${pIdx + 1}`}
+                                style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, border: '2px solid #e2e8f0', transition: 'transform 0.15s', cursor: 'pointer' }}
+                                onMouseOver={(e) => e.target.style.transform = 'scale(1.08)'}
+                                onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                              />
+                            </a>
+                          ))}
                         </div>
                       </div>
+                    )}
+                  </>
+                )
+              })()}
 
-                      {/* 3. Property Details */}
-                      <div style={sectionStyle}>
-                        <div style={headerStyle}>🏠 Property Details</div>
-                        <div style={gridStyle}>
-                          <Field label="Property Type" value={v.propertyType} />
-                          <Field label="Property Sub-Type" value={v.propertySubType} />
-                          <Field label="Current Usage" value={v.currentUsage} />
-                          <Field label="Permitted Usage" value={v.permittedUsage || v.approvedUsage} />
-                          <Field label="Survey Number" value={v.surveyNumber || v.newSurveyNumber} />
-                          <Field label="Plot / Door Number" value={v.plotNumber || v.doorNumber || v.propertyNumber} />
-                          <Field label="Village / Panchayat" value={v.village || v.panchayat} />
-                          <Field label="Taluk" value={v.taluk} />
-                          <Field label="District" value={v.district} />
-                          <Field label="State" value={v.state} />
-                          <Field label="Pincode" value={v.pincode} />
-                          <Field label="Zonal Classification" value={v.zonalClassification} />
-                          <Field label="Site Address" value={v.siteAddress} full />
-                          <Field label="Document Address" value={v.documentAddress} full />
-                          <Field label="Landmark" value={v.nearestLandmark || v.landmark} full />
-                        </div>
-                      </div>
-
-                      {/* 4. Location & Access */}
-                      <div style={sectionStyle}>
-                        <div style={headerStyle}>📍 Location & Access</div>
-                        <div style={gridStyle}>
-                          <Field label="Distance from Branch (km)" value={v.distanceFromBranch} />
-                          <Field label="Distance from City" value={v.distanceFromCity} />
-                          <Field label="Approach Road" value={v.approachRoadWidth || v.roadWidth} />
-                          <Field label="Road Condition" value={v.approachRoadCondition} />
-                          <Field label="Nearest Bus Stop" value={v.busStop} />
-                          <Field label="Railway Station" value={v.railwayStation} />
-                          <Field label="Class of Locality" value={v.classOfLocality} />
-                          <Field label="Marketability" value={v.marketability} />
-                          <Field label="Nearby Amenities" value={v.nearbyAmenities} full />
-                          <Field label="Latitude" value={v.latitude} />
-                          <Field label="Longitude" value={v.longitude} />
-                        </div>
-                      </div>
-
-                      {/* 5. Area & Construction */}
-                      <div style={sectionStyle}>
-                        <div style={headerStyle}>📐 Area & Construction Details</div>
-                        <div style={gridStyle}>
-                          <Field label="Plot / Land Area" value={v.plotArea || v.siteAreaActual} />
-                          <Field label="UDS Area" value={v.udsArea} />
-                          <Field label="Carpet Area (sq ft)" value={v.carpetArea} />
-                          <Field label="Built-up Area (sq ft)" value={v.builtUpArea || v.actualBUA} />
-                          <Field label="Number of Floors" value={v.numberOfFloorsAsBuilt || v.floors} />
-                          <Field label="Number of Rooms" value={v.numberOfRooms || v.rooms} />
-                          <Field label="Type of Structure" value={v.typeOfStructure} />
-                          <Field label="Construction Type" value={v.typeOfConstruction} />
-                          <Field label="Roof" value={v.roof} />
-                          <Field label="Flooring" value={v.flooring} />
-                          <Field label="Year of Construction" value={v.yearOfConstruction} />
-                          <Field label="Age of Property (yrs)" value={v.ageOfProperty || v.propertyAge} />
-                          <Field label="Residual Life (yrs)" value={v.residualLife} />
-                          <Field label="Construction Quality" value={v.constructionQuality} />
-                          <Field label="Construction Stage" value={v.constructionStage} />
-                          <Field label="Plot Shape" value={v.plotShape} />
-                        </div>
-                      </div>
-
-                      {/* 6. Occupancy */}
-                      <div style={sectionStyle}>
-                        <div style={headerStyle}>🏡 Occupancy & Identification</div>
-                        <div style={gridStyle}>
-                          <Field label="Present Occupancy" value={v.presentOccupancy || v.occupancy} />
-                          <Field label="Occupant Name" value={v.occupantName} />
-                          <Field label="Occupant Relationship" value={v.occupantRelationship} />
-                          <Field label="Property Identified Through" value={v.identificationMethod || v.identifiedThrough} />
-                        </div>
-                      </div>
-
-                      {/* 7. Boundaries */}
-                      <div style={sectionStyle}>
-                        <div style={{ ...headerStyle, background: 'linear-gradient(90deg, #fefce8, #fef9c3)', color: '#854d0e', borderBottom: '1px solid #fde68a' }}>📍 Boundary Details</div>
-                        <div style={gridStyle}>
-                          <Field label="North (as per Document)" value={v.northBoundaryDoc} />
-                          <Field label="North (as at Site)" value={v.northBoundarySite} />
-                          <Field label="South (as per Document)" value={v.southBoundaryDoc} />
-                          <Field label="South (as at Site)" value={v.southBoundarySite} />
-                          <Field label="East (as per Document)" value={v.eastBoundaryDoc} />
-                          <Field label="East (as at Site)" value={v.eastBoundarySite} />
-                          <Field label="West (as per Document)" value={v.westBoundaryDoc} />
-                          <Field label="West (as at Site)" value={v.westBoundarySite} />
-                          <Field label="Boundaries Matching" value={v.boundariesMatching === true || v.boundariesMatching === 'Yes' ? '✅ Yes' : v.boundariesMatching === false || v.boundariesMatching === 'No' ? '❌ No' : v.boundariesMatching} />
-                          <Field label="Boundary Remarks" value={v.boundaryDifferenceRemarks} />
-                        </div>
-                      </div>
-
-                      {/* 8. Approvals */}
-                      <div style={sectionStyle}>
-                        <div style={headerStyle}>📜 Approvals & Documents</div>
-                        <div style={gridStyle}>
-                          <Field label="Building Approval" value={v.buildingApprovalAvailable ? `✅ Available (${v.buildingApprovalNumber || ''})` : '❌ Not Available'} />
-                          <Field label="DTCP Approval" value={v.dtcpApproval} />
-                          <Field label="HNTDA Approval" value={v.hntdaApproval} />
-                          <Field label="RERA" value={v.rera} />
-                          <Field label="Sanction Plan Verified" value={v.sanctionPlanVerified ? '✅ Yes' : '❌ No'} />
-                          <Field label="Construction as per Plan" value={v.constructionAsPerPlan ? '✅ Yes' : (v.deviationFromPlan ? '❌ Deviations found' : '—')} />
-                          <Field label="Ownership Type" value={v.ownershipType} />
-                          <Field label="Documents Verified" value={v.documentsVerified ? '✅ Verified' : (v.documentsVerified === false ? '❌ Not Verified' : v.documentsVerified)} />
-                          <Field label="FSR Permitted" value={v.fsrPermitted} />
-                          <Field label="FSR Actual" value={v.fsrActual} />
-                        </div>
-                      </div>
-
-                      {/* 9. Valuation */}
-                      <div style={{ ...sectionStyle, border: '1.5px solid #bbf7d0' }}>
-                        <div style={{ ...headerStyle, background: 'linear-gradient(90deg, #f0fdf4, #dcfce7)', color: '#166534', borderBottom: '1px solid #86efac' }}>💰 Valuation Details</div>
-                        <div style={gridStyle}>
-                          <Field label="Present Market Rate" value={v.presentMarketRate ? `₹${Number(v.presentMarketRate).toLocaleString('en-IN')}/sq.ft` : undefined} />
-                          <Field label="Guideline Value" value={v.guidelineValue ? `₹${Number(v.guidelineValue).toLocaleString('en-IN')}/sq.ft` : undefined} />
-                          <Field label="Land Value" value={v.landValue ? `₹${Number(v.landValue).toLocaleString('en-IN')}` : undefined} />
-                          <Field label="Net Construction Value" value={v.netConstructionValue ? `₹${Number(v.netConstructionValue).toLocaleString('en-IN')}` : undefined} />
-                          <Field label="Depreciation %" value={v.depreciationPercent} />
-                          <Field label="Amenities Value" value={v.amenitiesValue ? `₹${Number(v.amenitiesValue).toLocaleString('en-IN')}` : undefined} />
-                          <Field label="Total Property Value" value={v.totalPropertyValue || v.totalValue ? `₹${Number(v.totalPropertyValue || v.totalValue).toLocaleString('en-IN')}` : undefined} />
-                          <Field label="Present Market Value" value={v.presentMarketValue ? `₹${Number(v.presentMarketValue).toLocaleString('en-IN')}` : undefined} />
-                          <Field label="Realizable Value" value={v.realizableValue ? `₹${Number(v.realizableValue).toLocaleString('en-IN')}` : undefined} />
-                          <Field label="Forced Sale Value" value={v.forcedSaleValue ? `₹${Number(v.forcedSaleValue).toLocaleString('en-IN')}` : undefined} />
-                          <Field label="Value in Words" value={v.valueInWords} full />
-                        </div>
-                      </div>
-
-                      {/* 10. Observations */}
-                      {(v.observation || v.remarks) && (
-                        <div style={sectionStyle}>
-                          <div style={headerStyle}>📝 Observations & Remarks</div>
-                          <div style={{ padding: 14, display: 'grid', gap: 12 }}>
-                            {v.observation && (
-                              <div>
-                                <div style={labelStyle}>Observation</div>
-                                <div style={{ ...valStyle, fontWeight: 500, fontSize: '0.85rem', lineHeight: 1.6, color: '#374151' }}>{v.observation}</div>
-                              </div>
-                            )}
-                            {v.remarks && (
-                              <div>
-                                <div style={labelStyle}>Remarks</div>
-                                <div style={{ ...valStyle, fontWeight: 500, fontSize: '0.85rem', lineHeight: 1.6, color: '#374151' }}>{v.remarks}</div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 11. Site Photos */}
-                      {viewingReportJob.sitePhotos?.length > 0 && (
-                        <div style={sectionStyle}>
-                          <div style={headerStyle}>📷 Site Photos ({viewingReportJob.sitePhotos.length})</div>
-                          <div style={{ padding: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            {viewingReportJob.sitePhotos.map((photo, pIdx) => (
-                              <a key={pIdx} href={mediaUrl(photo.url)} target="_blank" rel="noopener noreferrer">
-                                <img
-                                  src={mediaUrl(photo.url)}
-                                  alt={photo.name || `Photo ${pIdx + 1}`}
-                                  style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, border: '2px solid #e2e8f0', transition: 'transform 0.15s', cursor: 'pointer' }}
-                                  onMouseOver={(e) => e.target.style.transform = 'scale(1.08)'}
-                                  onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
-                                />
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )
-                })()}
-
-                {/* Footer Actions */}
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid #e5e7eb', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                    onClick={() => {
-                      setViewingReportJob(null)
-                      setIsEditingReportModal(false)
-                      setEditingJobForm(viewingReportJob)
-                      window.scrollTo({ top: 120, behavior: 'smooth' })
-                    }}
-                  >
-                    ✏️ Edit Full Inspection Form
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                    onClick={() => onGenerateReport(viewingReportJob.id, { applicantName: viewingReportJob.customer, branchName: viewingReportJob.branch, caseRefNo: viewingReportJob.id, sitePhotos: viewingReportJob.sitePhotos || [] })}
-                  >
-                    📊 Export Excel Report
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-btn"
-                    onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false) }}
-                  >
-                    Close
-                  </button>
-                </div>
+              {/* Page Footer Actions */}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 14, borderTop: '1px solid #e5e7eb', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  onClick={() => {
+                    setViewingReportJob(null)
+                    setIsEditingReportModal(false)
+                    setEditingJobForm(viewingReportJob)
+                    window.scrollTo({ top: 120, behavior: 'smooth' })
+                  }}
+                >
+                  ✏️ Edit Full Inspection Form
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  onClick={() => onGenerateReport(viewingReportJob.id, { applicantName: viewingReportJob.customer, branchName: viewingReportJob.branch, caseRefNo: viewingReportJob.id, sitePhotos: viewingReportJob.sitePhotos || [] })}
+                >
+                  📊 Export Excel Report
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => { setViewingReportJob(null); setIsEditingReportModal(false); setActiveSection('report') }}
+                >
+                  ← Back to Reports
+                </button>
               </div>
             </div>
           </div>
@@ -2134,270 +2164,252 @@ function AdminDashboard({ dashboardData, banks, bankTemplates, leads, jobs, user
           </div>
         )}
 
-        {/* Vendor Bill Details Modal Popup */}
-        {viewingBillJob && (
-          <div className="photo-lightbox" onClick={() => setViewingBillJob(null)}>
-            <div
-              className="card"
-              style={{ width: '100%', maxWidth: 620, margin: 20, maxHeight: '90vh', overflowY: 'auto', borderRadius: 'var(--radius-2xl)', border: '1px solid var(--gray-200)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header with Aligned Close & Edit Toggle Buttons */}
-              <div className="card-header" style={{ background: 'linear-gradient(135deg, var(--purple-50), #f3e8ff)', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--purple-100)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--purple-600)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '1.1rem', fontWeight: 800 }}>
-                    🧾
-                  </div>
-                  <div>
-                    <h3 style={{ color: 'var(--purple-900)', margin: 0, fontFamily: 'var(--font-display)', fontSize: '1.15rem', fontWeight: 800 }}>
-                      Vendor Bill Details
-                    </h3>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--purple-700)', fontWeight: 600, marginTop: 2 }}>
-                      Field Visitor: <strong>👷 {viewingBillJob.assignedEmployee || 'Field Executive'}</strong>
-                    </div>
-                  </div>
+        {/* ══ VENDOR BILL DETAIL PAGE ══ */}
+        {activeSection === 'vendor-bill-detail' && viewingBillJob && (
+          <div
+            className="card"
+            style={{ width: '100%', maxWidth: 820, margin: '0 auto 30px', borderRadius: 16, border: '1px solid var(--gray-200)', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
+          >
+            {/* Header with View / Edit Mode Toggle & Back Button */}
+            <div className="card-header" style={{ background: 'linear-gradient(135deg, var(--purple-50), #f3e8ff)', padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--purple-100)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--purple-600)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '1.2rem', fontWeight: 800 }}>
+                  🧾
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    type="button"
-                    className={`btn ${isEditingModal ? 'btn-primary' : 'secondary-btn'}`}
-                    style={{ fontSize: '0.78rem', padding: '6px 12px' }}
-                    onClick={() => setIsEditingModal((v) => !v)}
-                  >
-                    {isEditingModal ? '👁️ View Mode' : '✏️ Edit Details'}
-                  </button>
-                  <button
-                    type="button"
-                    style={{
-                      background: 'rgba(0,0,0,0.06)',
-                      border: 'none',
-                      borderRadius: '50%',
-                      width: 32,
-                      height: 32,
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontSize: '1.2rem',
-                      fontWeight: 800,
-                      color: 'var(--gray-700)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s',
-                    }}
-                    onClick={() => setViewingBillJob(null)}
-                    title="Close"
-                  >
-                    ×
-                  </button>
+                <div>
+                  <h3 style={{ color: 'var(--purple-900)', margin: 0, fontFamily: 'var(--font-display)', fontSize: '1.15rem', fontWeight: 800 }}>
+                    Vendor Bill Details — {viewingBillJob.customer}
+                  </h3>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--purple-700)', fontWeight: 600, marginTop: 2 }}>
+                    Field Visitor: <strong>👷 {viewingBillJob.assignedEmployee || 'Field Executive'}</strong> · {viewingBillJob.bank} ({viewingBillJob.branch || 'Main'})
+                  </div>
                 </div>
               </div>
 
-              {/* Body */}
-              <div className="card-body" style={{ padding: 24, display: 'grid', gap: 16 }}>
-                {isEditingModal ? (
-                  /* ─── EDIT MODE ─── */
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault()
-                      if (savingBill) return
-                      setSavingBill(true)
-                      try {
-                        const opinionFee = Number(editBillForm.opinionFee) || 0
-                        const additionalFee = Number(editBillForm.additionalFee) || 0
-                        const totalAmount = opinionFee + additionalFee
-                        const payload = {
-                          ...editBillForm,
-                          opinionFee,
-                          additionalFee,
-                          totalAmount,
-                          amount: opinionFee,
-                          customerName: viewingBillJob.customer,
-                          branch: viewingBillJob.branch,
-                          bankCode: viewingBillJob.bankCode,
-                          assignedEmployee: viewingBillJob.assignedEmployee,
-                          submitted: true,
-                        }
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  className={`btn ${isEditingModal ? 'btn-primary' : 'secondary-btn'}`}
+                  style={{ fontSize: '0.85rem', padding: '7px 14px' }}
+                  onClick={() => setIsEditingModal((v) => !v)}
+                >
+                  {isEditingModal ? '👁️ View Mode' : '✏️ Edit Details'}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => { setViewingBillJob(null); setActiveSection('billing') }}
+                >
+                  ← Back to Vendor Billing
+                </button>
+              </div>
+            </div>
 
-                        // Persist vendor bill server-side via prop handler if available
-                        if (onSubmitVendorBill) {
-                          await onSubmitVendorBill(viewingBillJob.id, payload)
-                        } else {
-                          // Fallback: optimistic local update
-                          viewingBillJob.vendorBillDetails = payload
-                        }
-
-                        showMsg('Vendor bill details updated successfully!')
-                        setIsEditingModal(false)
-                        onRefresh()
-                      } catch (err) {
-                        showMsg(err.message, 'error')
-                      } finally {
-                        setSavingBill(false)
+            {/* Body */}
+            <div className="card-body" style={{ padding: 26, display: 'grid', gap: 18 }}>
+              {isEditingModal ? (
+                /* ─── EDIT MODE ─── */
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault()
+                    if (savingBill) return
+                    setSavingBill(true)
+                    try {
+                      const opinionFee = Number(editBillForm.opinionFee) || 0
+                      const additionalFee = Number(editBillForm.additionalFee) || 0
+                      const totalAmount = opinionFee + additionalFee
+                      const payload = {
+                        ...editBillForm,
+                        opinionFee,
+                        additionalFee,
+                        totalAmount,
+                        amount: opinionFee,
+                        customerName: viewingBillJob.customer,
+                        branch: viewingBillJob.branch,
+                        bankCode: viewingBillJob.bankCode,
+                        assignedEmployee: viewingBillJob.assignedEmployee,
+                        submitted: true,
                       }
-                    }}
-                    style={{ display: 'grid', gap: 14 }}
-                  >
-                    <div className="form-row">
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Customer Name</label>
-                        <input className="form-input" value={viewingBillJob.customer || ''} readOnly style={{ background: 'var(--gray-100)' }} />
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Bank & Branch</label>
-                        <input className="form-input" value={`${viewingBillJob.bank} (${viewingBillJob.branch || 'Main'})`} readOnly style={{ background: 'var(--gray-100)' }} />
-                      </div>
-                    </div>
 
-                    <div className="form-row">
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Customer ID / App No</label>
-                        <input
-                          className="form-input"
-                          value={editBillForm.customerId || ''}
-                          onChange={(e) => setEditBillForm((p) => ({ ...p, customerId: e.target.value }))}
-                          placeholder="Customer ID"
-                        />
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Date of Opinion / Visit</label>
-                        <input
-                          className="form-input"
-                          type="date"
-                          value={editBillForm.opinionDate || ''}
-                          onChange={(e) => setEditBillForm((p) => ({ ...p, opinionDate: e.target.value }))}
-                        />
-                      </div>
-                    </div>
+                      if (onSubmitVendorBill) {
+                        await onSubmitVendorBill(viewingBillJob.id, payload)
+                      } else {
+                        viewingBillJob.vendorBillDetails = payload
+                      }
 
-                    <div className="form-row">
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Opinion Fee (Rs.)</label>
-                        <input
-                          className="form-input"
-                          type="number"
-                          value={editBillForm.opinionFee || 0}
-                          onChange={(e) => setEditBillForm((p) => ({ ...p, opinionFee: e.target.value }))}
-                        />
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Additional Fee (Rs.)</label>
-                        <input
-                          className="form-input"
-                          type="number"
-                          value={editBillForm.additionalFee || 0}
-                          onChange={(e) => setEditBillForm((p) => ({ ...p, additionalFee: e.target.value }))}
-                        />
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Total Amount (Rs.)</label>
-                        <input
-                          className="form-input"
-                          value={`₹${(Number(editBillForm.opinionFee) || 0) + (Number(editBillForm.additionalFee) || 0)}`}
-                          readOnly
-                          style={{ background: 'var(--green-50)', fontWeight: 800, color: 'var(--green-700)' }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-row">
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Job Card Prefix</label>
-                        <input
-                          className="form-input"
-                          value={editBillForm.jobCardPrefix || ''}
-                          onChange={(e) => setEditBillForm((p) => ({ ...p, jobCardPrefix: e.target.value }))}
-                          placeholder="Prefix e.g. K"
-                        />
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Job Card No.</label>
-                        <input
-                          className="form-input"
-                          value={editBillForm.jobCardNo || ''}
-                          onChange={(e) => setEditBillForm((p) => ({ ...p, jobCardNo: e.target.value }))}
-                          placeholder="Job Card No."
-                        />
-                      </div>
-                    </div>
-
+                      showMsg('Vendor bill details updated successfully!')
+                      setIsEditingModal(false)
+                      onRefresh()
+                    } catch (err) {
+                      showMsg(err.message, 'error')
+                    } finally {
+                      setSavingBill(false)
+                    }
+                  }}
+                  style={{ display: 'grid', gap: 16 }}
+                >
+                  <div className="form-row">
                     <div className="form-field">
-                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Remarks / Special Notes</label>
+                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Customer Name</label>
+                      <input className="form-input" value={viewingBillJob.customer || ''} readOnly style={{ background: 'var(--gray-100)' }} />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Bank & Branch</label>
+                      <input className="form-input" value={`${viewingBillJob.bank} (${viewingBillJob.branch || 'Main'})`} readOnly style={{ background: 'var(--gray-100)' }} />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-field">
+                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Customer ID / App No</label>
                       <input
                         className="form-input"
-                        value={editBillForm.remarks || ''}
-                        onChange={(e) => setEditBillForm((p) => ({ ...p, remarks: e.target.value }))}
-                        placeholder="Additional remarks"
+                        value={editBillForm.customerId || ''}
+                        onChange={(e) => setEditBillForm((p) => ({ ...p, customerId: e.target.value }))}
+                        placeholder="Customer ID"
                       />
                     </div>
-
-                    <div className="btn-group" style={{ justifyContent: 'flex-end', marginTop: 10 }}>
-                      <button type="button" className="btn btn-secondary" onClick={() => setIsEditingModal(false)}>Cancel</button>
-                      <button type="submit" className="btn btn-primary" disabled={savingBill}>{savingBill ? 'Saving...' : '💾 Save & Update Vendor Bill'}</button>
+                    <div className="form-field">
+                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Date of Opinion / Visit</label>
+                      <input
+                        className="form-input"
+                        type="date"
+                        value={editBillForm.opinionDate || ''}
+                        onChange={(e) => setEditBillForm((p) => ({ ...p, opinionDate: e.target.value }))}
+                      />
                     </div>
-                  </form>
-                ) : (
-                  /* ─── VIEW MODE ─── */
-                  <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, background: 'var(--gray-50)', padding: 16, borderRadius: 14, border: '1px solid var(--gray-200)' }}>
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Customer Name</div>
-                        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--gray-900)' }}>{viewingBillJob.customer}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Bank & Branch</div>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--gray-800)' }}>{viewingBillJob.bank} ({viewingBillJob.branch || 'Main'})</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Customer ID / App No</div>
-                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--gray-800)', wordBreak: 'break-all' }}>{viewingBillJob.vendorBillDetails?.customerId || viewingBillJob.id}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Date of Opinion / Visit</div>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--gray-800)' }}>{viewingBillJob.vendorBillDetails?.opinionDate || (viewingBillJob.visitedAt ? new Date(viewingBillJob.visitedAt).toLocaleDateString() : '—')}</div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-field">
+                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Opinion Fee (Rs.)</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        value={editBillForm.opinionFee || 0}
+                        onChange={(e) => setEditBillForm((p) => ({ ...p, opinionFee: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Additional Fee (Rs.)</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        value={editBillForm.additionalFee || 0}
+                        onChange={(e) => setEditBillForm((p) => ({ ...p, additionalFee: e.target.value }))}
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Total Amount (Rs.)</label>
+                      <input
+                        className="form-input"
+                        value={`₹${(Number(editBillForm.opinionFee) || 0) + (Number(editBillForm.additionalFee) || 0)}`}
+                        readOnly
+                        style={{ background: 'var(--green-50)', fontWeight: 800, color: 'var(--green-700)' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-field">
+                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Job Card Prefix</label>
+                      <input
+                        className="form-input"
+                        value={editBillForm.jobCardPrefix || ''}
+                        onChange={(e) => setEditBillForm((p) => ({ ...p, jobCardPrefix: e.target.value }))}
+                        placeholder="Prefix e.g. K"
+                      />
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Job Card No.</label>
+                      <input
+                        className="form-input"
+                        value={editBillForm.jobCardNo || ''}
+                        onChange={(e) => setEditBillForm((p) => ({ ...p, jobCardNo: e.target.value }))}
+                        placeholder="Job Card No."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-field">
+                    <label className="form-label" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--gray-500)', fontWeight: 700 }}>Remarks / Special Notes</label>
+                    <textarea
+                      className="form-textarea"
+                      value={editBillForm.remarks || ''}
+                      onChange={(e) => setEditBillForm((p) => ({ ...p, remarks: e.target.value }))}
+                      placeholder="Additional remarks..."
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="btn-group" style={{ justifyContent: 'flex-end', marginTop: 10, gap: 10, paddingTop: 16, borderTop: '1px solid var(--gray-200)' }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => setIsEditingModal(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary btn-lg" disabled={savingBill}>{savingBill ? 'Saving...' : '💾 Save & Update Vendor Bill'}</button>
+                  </div>
+                </form>
+              ) : (
+                /* ─── VIEW MODE ─── */
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, background: 'var(--gray-50)', padding: 18, borderRadius: 14, border: '1px solid var(--gray-200)' }}>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Customer Name</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--gray-900)' }}>{viewingBillJob.customer}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Bank & Branch</div>
+                      <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--gray-800)' }}>{viewingBillJob.bank} ({viewingBillJob.branch || 'Main'})</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Customer ID / App No</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--gray-800)', wordBreak: 'break-all' }}>{viewingBillJob.vendorBillDetails?.customerId || viewingBillJob.id}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Date of Opinion / Visit</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--gray-800)' }}>{viewingBillJob.vendorBillDetails?.opinionDate || (viewingBillJob.visitedAt ? new Date(viewingBillJob.visitedAt).toLocaleDateString() : '—')}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, background: 'var(--green-50)', padding: 18, borderRadius: 14, border: '1.5px solid var(--green-200)' }}>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--green-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Opinion Fee</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--green-700)' }}>₹{viewingBillJob.vendorBillDetails?.opinionFee || 1500}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--green-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Additional Fee</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--green-700)' }}>₹{viewingBillJob.vendorBillDetails?.additionalFee || 0}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--green-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Total Amount</div>
+                      <div style={{ fontWeight: 900, fontSize: '1.3rem', color: 'var(--green-800)' }}>₹{viewingBillJob.vendorBillDetails?.totalAmount || 1500}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, background: 'var(--gray-50)', padding: 18, borderRadius: 14, border: '1px solid var(--gray-200)' }}>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Job Card Prefix & No</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--brand-700)' }}>
+                        {viewingBillJob.vendorBillDetails?.jobCardPrefix || 'K'} - {viewingBillJob.vendorBillDetails?.jobCardNo || '1'}
                       </div>
                     </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, background: 'var(--green-50)', padding: 16, borderRadius: 14, border: '1.5px solid var(--green-200)' }}>
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--green-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Opinion Fee</div>
-                        <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--green-700)' }}>₹{viewingBillJob.vendorBillDetails?.opinionFee || 1500}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--green-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Additional Fee</div>
-                        <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--green-700)' }}>₹{viewingBillJob.vendorBillDetails?.additionalFee || 0}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--green-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Total Amount</div>
-                        <div style={{ fontWeight: 900, fontSize: '1.25rem', color: 'var(--green-800)' }}>₹{viewingBillJob.vendorBillDetails?.totalAmount || 1500}</div>
-                      </div>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Field Visitor / Executive</div>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--gray-900)' }}>👷 {viewingBillJob.assignedEmployee || 'Unassigned'}</div>
                     </div>
+                  </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, background: 'var(--gray-50)', padding: 16, borderRadius: 14, border: '1px solid var(--gray-200)' }}>
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Job Card Prefix & No</div>
-                        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--brand-700)' }}>
-                          {viewingBillJob.vendorBillDetails?.jobCardPrefix || 'K'} - {viewingBillJob.vendorBillDetails?.jobCardNo || '1'}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Field Visitor / Executive</div>
-                        <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--gray-900)' }}>👷 {viewingBillJob.assignedEmployee || 'Unassigned'}</div>
-                      </div>
+                  {viewingBillJob.vendorBillDetails?.remarks && (
+                    <div style={{ background: 'var(--amber-50)', padding: 16, borderRadius: 12, border: '1px solid var(--amber-200)' }}>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--amber-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Remarks / Special Notes</div>
+                      <div style={{ fontSize: '0.92rem', color: 'var(--gray-800)', marginTop: 4, fontWeight: 500 }}>{viewingBillJob.vendorBillDetails.remarks}</div>
                     </div>
+                  )}
 
-                    {viewingBillJob.vendorBillDetails?.remarks && (
-                      <div style={{ background: 'var(--amber-50)', padding: 14, borderRadius: 12, border: '1px solid var(--amber-200)' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--amber-800)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Remarks / Special Notes</div>
-                        <div style={{ fontSize: '0.9rem', color: 'var(--gray-800)', marginTop: 4, fontWeight: 500 }}>{viewingBillJob.vendorBillDetails.remarks}</div>
-                      </div>
-                    )}
-
-                    <div className="btn-group" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
-                      <button type="button" className="btn btn-primary" onClick={() => setIsEditingModal(true)}>✏️ Edit Details</button>
-                      <button type="button" className="btn btn-secondary" onClick={() => setViewingBillJob(null)}>Close</button>
-                    </div>
-                  </>
-                )}
-              </div>
+                  <div className="btn-group" style={{ justifyContent: 'flex-end', marginTop: 10, gap: 10, paddingTop: 16, borderTop: '1px solid var(--gray-200)' }}>
+                    <button type="button" className="btn btn-primary" onClick={() => setIsEditingModal(true)}>✏️ Edit Details</button>
+                    <button type="button" className="btn btn-secondary" onClick={() => { setViewingBillJob(null); setActiveSection('billing') }}>← Back to Vendor Billing</button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
