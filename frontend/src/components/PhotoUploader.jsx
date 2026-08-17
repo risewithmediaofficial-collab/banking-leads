@@ -262,102 +262,111 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
         </div>
       )}
 
-      {/* ─── Rich Lightbox Modal ─── */}
+      {/* ─── Fullscreen Lightbox Modal ─── */}
       {selectedPhoto && (
-        <div className="photo-lightbox" onClick={() => setLightboxIndex(null)}>
-          {/* Top-right floating backdrop close button */}
-          <button
-            type="button"
-            className="photo-lightbox-floating-close"
-            onClick={() => setLightboxIndex(null)}
-            title="Close Lightbox (Esc)"
+        <div
+          className="photo-lightbox"
+          role="dialog"
+          aria-modal="true"
+        >
+          {/* 1. Top Header Bar (Always pinned at the top) */}
+          <div className="photo-lightbox-topbar">
+            <div className="photo-lightbox-title">
+              <span className="photo-lightbox-cat">
+                📷 {photoCategories.find((c) => c.key === selectedPhoto.category)?.label || selectedPhoto.category || 'Photo'}
+              </span>
+              <span className="photo-lightbox-counter">
+                {lightboxIndex + 1} of {filteredPhotos.length}
+              </span>
+            </div>
+
+            <div className="photo-lightbox-actions">
+              {selectedPhoto.url && (
+                <button
+                  type="button"
+                  className="photo-lightbox-btn"
+                  onClick={() => openFileUrl(selectedPhoto.url)}
+                  title="Open original high-res image in new tab"
+                >
+                  🔗 Open Original
+                </button>
+              )}
+              <button
+                type="button"
+                className="photo-lightbox-close"
+                onClick={() => setLightboxIndex(null)}
+                title="Close Fullscreen (Esc)"
+              >
+                ✕ Close
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Center Stage (100% Contained, click background to close) */}
+          <div
+            className="photo-lightbox-stage"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setLightboxIndex(null)
+            }}
           >
-            ✕ Close
-          </button>
+            {filteredPhotos.length > 1 && (
+              <button
+                type="button"
+                className="photo-lightbox-nav photo-lightbox-prev"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setLightboxIndex((prev) => (prev - 1 + filteredPhotos.length) % filteredPhotos.length)
+                }}
+                title="Previous photo (Left Arrow)"
+              >
+                ❮
+              </button>
+            )}
 
-          <div className="photo-lightbox-inner" onClick={(e) => e.stopPropagation()}>
-            {/* Lightbox Header */}
-            <div className="photo-lightbox-header">
-              <div className="photo-lightbox-title">
-                <span className="photo-lightbox-cat">
-                  {photoCategories.find((c) => c.key === selectedPhoto.category)?.label || selectedPhoto.category || 'Photo'}
-                </span>
-                <span className="photo-lightbox-counter">
-                  {lightboxIndex + 1} / {filteredPhotos.length}
-                </span>
-              </div>
-              <div className="photo-lightbox-actions">
-                {selectedPhoto.url && (
-                  <button
-                    type="button"
-                    className="photo-lightbox-btn"
-                    onClick={() => openFileUrl(selectedPhoto.url)}
-                    title="Open original in new tab"
-                  >
-                    🔗 Original
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="photo-lightbox-close"
-                  onClick={() => setLightboxIndex(null)}
-                  title="Close (Esc)"
-                >
-                  ✕
-                </button>
-              </div>
+            <div
+              className="photo-lightbox-img-box"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setLightboxIndex(null)
+              }}
+            >
+              <img
+                src={mediaUrl(selectedPhoto)}
+                data-fallback={selectedPhoto.previewUrl || ''}
+                alt={selectedPhoto.caption || 'Site photo'}
+                className="photo-lightbox-img"
+                onError={handleImageError}
+              />
             </div>
 
-            {/* Lightbox Main Image & Nav */}
-            <div className="photo-lightbox-body">
-              {filteredPhotos.length > 1 && (
-                <button
-                  type="button"
-                  className="photo-lightbox-nav photo-lightbox-prev"
-                  onClick={() => setLightboxIndex((prev) => (prev - 1 + filteredPhotos.length) % filteredPhotos.length)}
-                  title="Previous (Left Arrow)"
-                >
-                  ❮
-                </button>
-              )}
+            {filteredPhotos.length > 1 && (
+              <button
+                type="button"
+                className="photo-lightbox-nav photo-lightbox-next"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setLightboxIndex((prev) => (prev + 1) % filteredPhotos.length)
+                }}
+                title="Next photo (Right Arrow)"
+              >
+                ❯
+              </button>
+            )}
+          </div>
 
-              <div className="photo-lightbox-img-box">
-                <img
-                  src={mediaUrl(selectedPhoto)}
-                  data-fallback={selectedPhoto.previewUrl || ''}
-                  alt={selectedPhoto.caption || 'Site photo'}
-                  className="photo-lightbox-img"
-                  onError={handleImageError}
-                />
-              </div>
-
-              {filteredPhotos.length > 1 && (
-                <button
-                  type="button"
-                  className="photo-lightbox-nav photo-lightbox-next"
-                  onClick={() => setLightboxIndex((prev) => (prev + 1) % filteredPhotos.length)}
-                  title="Next (Right Arrow)"
-                >
-                  ❯
-                </button>
+          {/* 3. Bottom Info Bar (Always pinned at the bottom) */}
+          <div className="photo-lightbox-bottombar">
+            <div className="photo-lightbox-caption">
+              {selectedPhoto.caption ? (
+                <span><strong>Caption:</strong> {selectedPhoto.caption}</span>
+              ) : (
+                <span style={{ fontStyle: 'italic', opacity: 0.6 }}>No caption entered</span>
               )}
             </div>
-
-            {/* Lightbox Footer with Caption */}
-            <div className="photo-lightbox-footer">
-              <div className="photo-lightbox-caption">
-                {selectedPhoto.caption ? (
-                  <strong>{selectedPhoto.caption}</strong>
-                ) : (
-                  <span style={{ fontStyle: 'italic', opacity: 0.7 }}>No caption entered</span>
-                )}
-                {selectedPhoto.timestamp && (
-                  <span className="photo-lightbox-timestamp">
-                    Captured: {new Date(selectedPhoto.timestamp).toLocaleString()}
-                  </span>
-                )}
+            {selectedPhoto.timestamp && (
+              <div className="photo-lightbox-timestamp">
+                🕒 Captured: {new Date(selectedPhoto.timestamp).toLocaleString()}
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
