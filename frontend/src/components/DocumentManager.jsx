@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { mediaUrl, handleImageError } from '../services/media.js'
+import { mediaUrl, handleImageError, openFileUrl } from '../services/media.js'
 
 /**
  * DocumentManager — upload, categorize, verify, and preview property documents
@@ -68,49 +68,64 @@ function DocumentManager({ documentCategories, documents, onChange }) {
         </div>
       ) : (
         <div className="document-list">
-          {documents.map((doc, idx) => (
-            <div key={idx} className="document-row">
-              <div className="document-row-main">
-                <div className="document-icon">
-                  {(doc.previewUrl || (doc.url && doc.url.match(/\.(jpg|jpeg|png|gif|heic)/i)))
-                    ? <img src={mediaUrl(doc)} alt={doc.type} onError={handleImageError} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--gray-200)' }} />
-                    : <div style={{ width: 44, height: 44, background: 'var(--brand-50)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>📄</div>
-                  }
-                </div>
-                <div className="document-info">
-                  <div className="document-type-name">{doc.type}</div>
-                  {doc.number && <div className="document-meta">No: {doc.number}</div>}
-                  {doc.docDate && <div className="document-meta">Date: {doc.docDate}</div>}
-                  {doc.remarks && <div className="document-meta" style={{ color: 'var(--gray-500)' }}>{doc.remarks}</div>}
-                </div>
-                <div className="document-status">
-                  <select
-                    className="form-select"
-                    style={{ fontSize: '0.78rem', padding: '4px 8px' }}
-                    value={doc.verificationStatus || 'Verified'}
-                    onChange={(e) => updateDoc(idx, 'verificationStatus', e.target.value)}
+          {documents.map((doc, idx) => {
+            const hasImg = doc.previewUrl || (doc.url && doc.url.match(/\.(jpg|jpeg|png|gif|heic|webp)/i))
+            return (
+              <div key={idx} className="document-row">
+                <div className="document-row-main">
+                  <div
+                    className="document-icon"
+                    onClick={() => doc.url && openFileUrl(doc.url)}
+                    style={{ cursor: doc.url ? 'pointer' : 'default' }}
+                    title={doc.url ? 'Click to view file' : ''}
                   >
-                    <option value="Verified">Verified</option>
-                    <option value="Not Verified">Not Verified</option>
-                    <option value="Not Available">Not Available</option>
-                    <option value="Not Applicable">Not Applicable</option>
-                  </select>
+                    {hasImg ? (
+                      <img
+                        src={mediaUrl(doc)}
+                        alt={doc.type}
+                        onError={handleImageError}
+                        style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--gray-200)', display: 'block' }}
+                      />
+                    ) : (
+                      <div style={{ width: 48, height: 48, background: 'var(--brand-50)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>
+                        📄
+                      </div>
+                    )}
+                  </div>
+                  <div className="document-info">
+                    <div className="document-type-name">{doc.type}</div>
+                    {doc.number && <div className="document-meta">No: {doc.number}</div>}
+                    {doc.docDate && <div className="document-meta">Date: {doc.docDate}</div>}
+                    {doc.remarks && <div className="document-meta" style={{ color: 'var(--gray-500)' }}>{doc.remarks}</div>}
+                  </div>
+                  <div className="document-status">
+                    <select
+                      className="form-select"
+                      style={{ fontSize: '0.78rem', padding: '4px 8px' }}
+                      value={doc.verificationStatus || 'Verified'}
+                      onChange={(e) => updateDoc(idx, 'verificationStatus', e.target.value)}
+                    >
+                      <option value="Verified">Verified</option>
+                      <option value="Not Verified">Not Verified</option>
+                      <option value="Not Available">Not Available</option>
+                      <option value="Not Applicable">Not Applicable</option>
+                    </select>
+                  </div>
+                  {doc.url && (
+                    <button
+                      type="button"
+                      onClick={() => openFileUrl(doc.url)}
+                      className="secondary-btn"
+                      style={{ fontSize: '0.78rem', padding: '5px 12px' }}
+                    >
+                      👁️ View File
+                    </button>
+                  )}
+                  <button type="button" className="secondary-btn danger-btn" style={{ fontSize: '0.78rem', padding: '5px 10px' }} onClick={() => removeDoc(idx)}>×</button>
                 </div>
-                {doc.url && (
-                  <a
-                    href={mediaUrl(doc.url)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="secondary-btn"
-                    style={{ fontSize: '0.78rem', padding: '5px 10px', textDecoration: 'none' }}
-                  >
-                    View
-                  </a>
-                )}
-                <button type="button" className="secondary-btn danger-btn" style={{ fontSize: '0.78rem', padding: '5px 10px' }} onClick={() => removeDoc(idx)}>×</button>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
