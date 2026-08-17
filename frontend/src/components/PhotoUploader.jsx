@@ -40,11 +40,12 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
           const matchIdx = tempPhotos.findIndex((t) => t.tempId === p.tempId)
           if (matchIdx !== -1 && uploadedFiles[matchIdx]) {
             const u = uploadedFiles[matchIdx]
+            const serverUrl = u.url || u.path || `/uploads/${u.filename}`
             return {
               ...p,
               ...u,
-              url: u.url || u.path,
-              previewUrl: p.previewUrl, // preserve local blob for instant session view
+              url: serverUrl,
+              previewUrl: serverUrl,
             }
           }
           return p

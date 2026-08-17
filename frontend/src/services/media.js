@@ -11,47 +11,63 @@
 export function mediaUrl(input) {
   if (!input) return ''
 
-  // 1. If photo object with previewUrl (blob: preview during file upload session), return previewUrl immediately
-  if (typeof input === 'object' && input.previewUrl) {
-    return input.previewUrl
-  }
-
-  // 2. Extract string path from string input or object properties
-  let path = typeof input === 'string'
-    ? input
-    : (input.url || input.path || input.src || (input.filename ? `/uploads/${input.filename}` : ''))
-  
-  if (!path) return ''
-
-  // 3. Blob / Data URIs are browser-local — return as-is
-  if (path.startsWith('blob:') || path.startsWith('data:')) {
-    return path
-  }
-
-  // 4. If path contains /uploads/, ALWAYS strip any domain/IP/port prefix -> /uploads/...
-  const uploadsIndex = path.indexOf('/uploads/')
-  if (uploadsIndex !== -1) {
-    return path.substring(uploadsIndex)
-  }
-
-  // 5. If path contains /generated/, ALWAYS strip any domain/IP/port prefix -> /generated/...
-  const generatedIndex = path.indexOf('/generated/')
-  if (generatedIndex !== -1) {
-    return path.substring(generatedIndex)
-  }
-
-  // 6. If path starts with http/https, extract pathname
-  if (/^https?:\/\//i.test(path)) {
-    try {
-      const urlObj = new URL(path)
-      return urlObj.pathname + urlObj.search
-    } catch {
-      path = path.replace(/^https?:\/\/[^\/]+/, '')
+  // 1. If input is a string
+  if (typeof input === 'string') {
+    let path = input.trim()
+    if (!path) return ''
+    if (path.startsWith('data:')) return path
+    if (path.startsWith('blob:')) {
+      // If someone passed a raw blob string directly, return as-is
+      return path
     }
+    const uploadsIndex = path.indexOf('/uploads/')
+    if (uploadsIndex !== -1) return path.substring(uploadsIndex)
+    const generatedIndex = path.indexOf('/generated/')
+    if (generatedIndex !== -1) return path.substring(generatedIndex)
+    if (/^https?:\/\//i.test(path)) {
+      try {
+        const urlObj = new URL(path)
+        return urlObj.pathname + urlObj.search
+      } catch {
+        path = path.replace(/^https?:\/\/[^\/]+/, '')
+      }
+    }
+    return path.startsWith('/') ? path : `/${path}`
   }
 
-  // 7. Ensure leading slash for relative URL path
-  return path.startsWith('/') ? path : `/${path}`
+  // 2. If input is an object (photo, document, file record)
+  if (typeof input === 'object') {
+    // ALWAYS prefer persistent server upload paths (url, path, src, filename) over temporary local blob: previewUrl
+    let path = input.url || input.path || input.src || (input.filename ? `/uploads/${input.filename}` : '')
+
+    // If no server URL is present and previewUrl is provided (active upload in-progress)
+    if (!path && input.previewUrl) {
+      path = input.previewUrl
+    }
+
+    if (!path) return ''
+
+    // If path is data: URI or active local blob: URL
+    if (path.startsWith('data:') || path.startsWith('blob:')) {
+      return path
+    }
+
+    const uploadsIndex = path.indexOf('/uploads/')
+    if (uploadsIndex !== -1) return path.substring(uploadsIndex)
+    const generatedIndex = path.indexOf('/generated/')
+    if (generatedIndex !== -1) return path.substring(generatedIndex)
+    if (/^https?:\/\//i.test(path)) {
+      try {
+        const urlObj = new URL(path)
+        return urlObj.pathname + urlObj.search
+      } catch {
+        path = path.replace(/^https?:\/\/[^\/]+/, '')
+      }
+    }
+    return path.startsWith('/') ? path : `/${path}`
+  }
+
+  return ''
 }
 
 /**

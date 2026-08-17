@@ -17,6 +17,26 @@ import {
 
 const DRAFT_KEY = (jobId) => `property-draft-${jobId}`
 
+const sanitizeMedia = (list) => {
+  if (!Array.isArray(list)) return []
+  return list.map((item) => {
+    if (!item) return item
+    if (typeof item === 'string') return item
+    if (typeof item === 'object') {
+      const serverUrl = item.url || item.path || item.src || (item.filename ? `/uploads/${item.filename}` : '')
+      if (serverUrl) {
+        return { ...item, url: serverUrl, previewUrl: serverUrl }
+      }
+      if (item.previewUrl && item.previewUrl.startsWith('blob:')) {
+        // Strip dead blob URL if no server URL exists
+        const { previewUrl, ...rest } = item
+        return rest
+      }
+    }
+    return item
+  })
+}
+
 function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport }) {
   const bankCode = job?.bankCode || 'UJJ'
   const template = useMemo(() => getTemplate(bankCode), [bankCode])
@@ -50,20 +70,20 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
   const [photos, setPhotos] = useState(() => {
     const draft = localStorage.getItem(DRAFT_KEY(job?.id))
     if (draft) {
-      try { return JSON.parse(draft).photos } catch {}
+      try { return sanitizeMedia(JSON.parse(draft).photos) } catch {}
     }
-    if (job?.visitDetails?.photos && job.visitDetails.photos.length > 0) return job.visitDetails.photos
-    if (job?.visitDetails?.sitePhotos && job.visitDetails.sitePhotos.length > 0) return job.visitDetails.sitePhotos
-    return job?.sitePhotos || []
+    if (job?.visitDetails?.photos && job.visitDetails.photos.length > 0) return sanitizeMedia(job.visitDetails.photos)
+    if (job?.visitDetails?.sitePhotos && job.visitDetails.sitePhotos.length > 0) return sanitizeMedia(job.visitDetails.sitePhotos)
+    return sanitizeMedia(job?.sitePhotos || [])
   })
 
   const [documents, setDocuments] = useState(() => {
     const draft = localStorage.getItem(DRAFT_KEY(job?.id))
     if (draft) {
-      try { return JSON.parse(draft).documents } catch {}
+      try { return sanitizeMedia(JSON.parse(draft).documents) } catch {}
     }
-    if (job?.visitDetails?.documents && job.visitDetails.documents.length > 0) return job.visitDetails.documents
-    return job?.documents || []
+    if (job?.visitDetails?.documents && job.visitDetails.documents.length > 0) return sanitizeMedia(job.visitDetails.documents)
+    return sanitizeMedia(job?.documents || [])
   })
 
   const [gps, setGps] = useState(() => {
@@ -97,10 +117,10 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
     }))
     if (existing.dynamicTables) setDynamicTables(existing.dynamicTables)
     if (existing.photos || existing.sitePhotos || job.sitePhotos) {
-      setPhotos(existing.photos || existing.sitePhotos || job.sitePhotos || [])
+      setPhotos(sanitizeMedia(existing.photos || existing.sitePhotos || job.sitePhotos || []))
     }
     if (existing.documents || job.documents) {
-      setDocuments(existing.documents || job.documents || [])
+      setDocuments(sanitizeMedia(existing.documents || job.documents || []))
     }
     if (existing.latitude || existing.longitude) {
       setGps({
