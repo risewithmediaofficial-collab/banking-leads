@@ -201,7 +201,7 @@ function App() {
       ) : (
         <FieldDashboard
           user={user}
-          jobs={jobs.filter((job) => job.assignedTo === user.id)}
+          jobs={jobs.filter((job) => String(job.assignedTo?._id || job.assignedTo || '') === String(user.id || '') || (job.assignedEmployee && job.assignedEmployee === user.name))}
           bankTemplates={bankTemplates}
           onSubmit={handleSubmitJob}
           onSubmitVendorBill={handleSubmitVendorBill}

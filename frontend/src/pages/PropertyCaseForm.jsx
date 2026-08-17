@@ -489,7 +489,7 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
           </button>
           {onGenerateReport && (
             <button type="button" className="btn btn-success" onClick={handleDownloadReport}>
-              📄 Download Word Report (.docx)
+              📄 Download Technical Report (Excel)
             </button>
           )}
           <button type="button" className="btn btn-primary" onClick={handleFormSubmit} disabled={submitting}>
@@ -709,7 +709,7 @@ function PropertyCaseForm({ job, onSubmit, onSaveDraft, onBack, onGenerateReport
         </button>
         {onGenerateReport && (
           <button type="button" className="btn btn-success btn-lg" onClick={handleDownloadReport}>
-            📄 Generate &amp; Download Word Report (.docx)
+            📄 Generate &amp; Download Technical Report (Excel)
           </button>
         )}
         <button type="button" className="btn btn-primary btn-lg" disabled={submitting} onClick={handleFormSubmit}>

@@ -629,6 +629,9 @@ function AdminDashboard({ user, dashboardData, banks, bankTemplates, leads, jobs
             className={`sidebar-nav-btn ${activeSection === id ? 'active-nav' : ''}`}
             onClick={() => {
               setActiveSection(id)
+              setEditingJobForm(null)
+              setViewingBillJob(null)
+              setViewingReportJob(null)
               setIsMobileMenuOpen(false)
             }}
             title={isSidebarCollapsed ? label : ''}
@@ -1464,7 +1467,12 @@ function AdminDashboard({ user, dashboardData, banks, bankTemplates, leads, jobs
                           <button
                             type="button"
                             className="secondary-btn btn-sm"
-                            onClick={() => { setViewingReportJob(job); setIsEditingReportModal(false) }}
+                            onClick={() => {
+                              setViewingReportJob(job)
+                              setIsEditingReportModal(false)
+                              setActiveSection('report-detail')
+                              window.scrollTo({ top: 0, behavior: 'smooth' })
+                            }}
                           >
                             👁️ View Details
                           </button>
@@ -2034,7 +2042,12 @@ function AdminDashboard({ user, dashboardData, banks, bankTemplates, leads, jobs
                                   type="button"
                                   className="btn btn-secondary btn-sm"
                                   style={{ padding: '5px 12px', fontSize: '0.78rem' }}
-                                  onClick={() => setViewingBillJob(job)}
+                                  onClick={() => {
+                                    setViewingBillJob(job)
+                                    setIsEditingModal(false)
+                                    setActiveSection('vendor-bill-detail')
+                                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                                  }}
                                 >
                                   👁️ View & Edit Details
                                 </button>

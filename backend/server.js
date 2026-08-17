@@ -389,16 +389,6 @@ async function generateTechnicalReport(details) {
   return _genReport(details, generatedDir, reportTemplatePath)
 }
 
-app.post('/api/upload', upload.array('photos', 10), (req, res) => {
-  const files = (req.files || []).map((file) => ({
-    url: `/uploads/${file.filename}`,
-    name: file.originalname,
-    filename: file.filename,
-    uploadedAt: new Date(),
-  }))
-  res.json({ success: true, files })
-})
-
 app.get('/api/billing/summary', asyncRoute(async (req, res) => {
   const { period = 'all' } = req.query
   let dateQuery = {}
@@ -611,6 +601,7 @@ async function generateVendorBill(payload) {
       }
 
       // Header row styling (row 25)
+      const headerRow = sheet.getRow(25)
       headerRow.eachCell({ includeEmpty: true }, (cell) => {
         cell.font = { bold: true }
         cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
@@ -1343,17 +1334,6 @@ app.post('/api/billing/generate', asyncRoute(async (req, res) => {
   res.json({ success: true, fileUrl, month: req.body.month || '2026-07' })
 }))
 
-app.use((error, _req, res, _next) => {
-  console.error(error)
-  if (error.code === 11000) {
-    return res.status(409).json({ message: 'This record already exists' })
-  }
-  if (error.name === 'ValidationError' || error.name === 'CastError') {
-    return res.status(400).json({ message: error.message })
-  }
-  res.status(500).json({ message: error.message || 'Server error' })
-})
-
 // Health check endpoint for Docker and load balancers
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'banking-leads-backend' })
@@ -1377,6 +1357,18 @@ if (fs.existsSync(frontendDist)) {
     res.status(404).json({ message: 'Route not found. Frontend is served separately on port 8088.' })
   })
 }
+
+// Global error handler middleware
+app.use((error, _req, res, _next) => {
+  console.error(error)
+  if (error.code === 11000) {
+    return res.status(409).json({ message: 'This record already exists' })
+  }
+  if (error.name === 'ValidationError' || error.name === 'CastError') {
+    return res.status(400).json({ message: error.message })
+  }
+  res.status(500).json({ message: error.message || 'Server error' })
+})
 
 async function start() {
   await mongoose.connect(mongoUri)
