@@ -85,11 +85,17 @@ export function openFileUrl(path) {
 export const FALLBACK_IMAGE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" fill="none"><rect width="120" height="120" rx="12" fill="%23f1f5f9"/><path d="M40 46C40 43.7909 41.7909 42 44 42H76C78.2091 42 80 43.7909 80 46V74C80 76.2091 78.2091 78 76 78H44C41.7909 78 40 76.2091 40 74V46Z" stroke="%2394a3b8" stroke-width="3"/><circle cx="52" cy="52" r="4" fill="%2394a3b8"/><path d="M44 70L54 58L64 68L70 62L76 70H44Z" fill="%2394a3b8"/><text x="50%" y="88%" dominant-baseline="middle" text-anchor="middle" font-size="10" fill="%2364748b" font-family="sans-serif" font-weight="bold">Image Unavailable</text></svg>'
 
 /**
- * Handles image load errors gracefully by replacing broken source with a styled fallback placeholder.
+ * Handles image load errors gracefully by checking data-fallback before replacing broken source with placeholder.
  * @param {Event} e - Image onError event
  */
 export function handleImageError(e) {
   if (e && e.target) {
+    const fallback = e.target.getAttribute('data-fallback')
+    if (fallback && !e.target.dataset.triedFallback && fallback !== e.target.src) {
+      e.target.dataset.triedFallback = 'true'
+      e.target.src = fallback
+      return
+    }
     e.target.onerror = null
     e.target.src = FALLBACK_IMAGE
   }

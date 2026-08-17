@@ -185,6 +185,7 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
                 >
                   <img
                     src={photoSrc}
+                    data-fallback={photo.previewUrl || ''}
                     alt={photo.caption || catInfo?.label || 'Site photo'}
                     className="photo-preview-img"
                     onError={handleImageError}
@@ -264,6 +265,16 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
       {/* ─── Rich Lightbox Modal ─── */}
       {selectedPhoto && (
         <div className="photo-lightbox" onClick={() => setLightboxIndex(null)}>
+          {/* Top-right floating backdrop close button */}
+          <button
+            type="button"
+            className="photo-lightbox-floating-close"
+            onClick={() => setLightboxIndex(null)}
+            title="Close Lightbox (Esc)"
+          >
+            ✕ Close
+          </button>
+
           <div className="photo-lightbox-inner" onClick={(e) => e.stopPropagation()}>
             {/* Lightbox Header */}
             <div className="photo-lightbox-header">
@@ -313,6 +324,7 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
               <div className="photo-lightbox-img-box">
                 <img
                   src={mediaUrl(selectedPhoto)}
+                  data-fallback={selectedPhoto.previewUrl || ''}
                   alt={selectedPhoto.caption || 'Site photo'}
                   className="photo-lightbox-img"
                   onError={handleImageError}
