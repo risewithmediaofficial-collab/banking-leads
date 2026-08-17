@@ -295,7 +295,7 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
                 type="button"
                 className="photo-lightbox-close"
                 onClick={() => setLightboxIndex(null)}
-                title="Close Fullscreen (Esc)"
+                title="Close Fullscreen View (Esc)"
               >
                 ✕ Close
               </button>
@@ -362,11 +362,21 @@ function PhotoUploader({ photoCategories, photos, onChange }) {
                 <span style={{ fontStyle: 'italic', opacity: 0.6 }}>No caption entered</span>
               )}
             </div>
-            {selectedPhoto.timestamp && (
-              <div className="photo-lightbox-timestamp">
-                🕒 Captured: {new Date(selectedPhoto.timestamp).toLocaleString()}
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {selectedPhoto.timestamp && (
+                <div className="photo-lightbox-timestamp">
+                  🕒 Captured: {new Date(selectedPhoto.timestamp).toLocaleString()}
+                </div>
+              )}
+              <button
+                type="button"
+                className="photo-lightbox-close-small"
+                onClick={() => setLightboxIndex(null)}
+                title="Close Fullscreen (Esc)"
+              >
+                ✕ Close
+              </button>
+            </div>
           </div>
         </div>
       )}
