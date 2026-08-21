@@ -1046,6 +1046,19 @@ function AdminDashboard({ user, dashboardData, banks, bankTemplates, leads, jobs
                       <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
                       <option value="Take Away">Take Away</option>
                     </select>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                      {['LAP', 'HL', 'BL', 'OD', 'Take Away'].map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          className={`btn btn-sm ${leadForm.loanType === type ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: 4 }}
+                          onClick={() => setLeadForm((p) => ({ ...p, loanType: type }))}
+                        >
+                          {type === 'HL' ? 'Home Loan' : type === 'BL' ? 'Business Loan' : type === 'OD' ? 'Overdraft' : type}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="form-field">
                     <label className="form-label">Bank Ref / App No.</label>
@@ -1262,6 +1275,19 @@ function AdminDashboard({ user, dashboardData, banks, bankTemplates, leads, jobs
                       <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
                       <option value="Take Away">Take Away</option>
                     </select>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                      {['LAP', 'HL', 'BL', 'OD', 'Take Away'].map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          className={`btn btn-sm ${taskForm.loanType === type ? 'btn-primary' : 'btn-secondary'}`}
+                          style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: 4 }}
+                          onClick={() => setTaskForm((p) => ({ ...p, loanType: type }))}
+                        >
+                          {type === 'HL' ? 'Home Loan' : type === 'BL' ? 'Business Loan' : type === 'OD' ? 'Overdraft' : type}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="form-field">
                     <label className="form-label">Due Date</label>
@@ -2221,17 +2247,14 @@ function AdminDashboard({ user, dashboardData, banks, bankTemplates, leads, jobs
                 <form onSubmit={handleBankSubmit}>
                   <div className="form-row" style={{ marginBottom: 14 }}>
                     <div className="form-field">
-                      <label className="form-label">Bank Name</label>
-                      <select className="form-select" value={bankForm.name} onChange={(e) => {
-                        const val = e.target.value
-                        if (val === 'UJJ') setBankForm({ name: 'Ujjivan Small Finance Bank', code: 'UJJ', branchName: 'Suramangalam', address: 'No-30/3-2, Mullai Nagar, Salem Main Road, Suramangalam, Salem - 636005' })
-                        else if (val === 'NIVARA') setBankForm({ name: 'Nivara Home Finance Limited', code: 'NIVARA', branchName: '', address: '' })
-                        else setBankForm((p) => ({ ...p, name: val }))
-                      }}>
-                        <option value="">— Select or type bank name —</option>
-                        <option value="UJJ">Ujjivan Small Finance Bank</option>
-                        <option value="NIVARA">Nivara Home Finance Limited</option>
-                      </select>
+                      <label className="form-label">Bank Name <span className="required">*</span></label>
+                      <input
+                        className="form-input"
+                        value={bankForm.name}
+                        onChange={(e) => setBankForm((p) => ({ ...p, name: e.target.value }))}
+                        placeholder="Enter bank name"
+                        required
+                      />
                     </div>
                     <div className="form-field">
                       <label className="form-label">Bank Code</label>
