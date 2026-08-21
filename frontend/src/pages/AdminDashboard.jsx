@@ -1044,6 +1044,7 @@ function AdminDashboard({ user, dashboardData, banks, bankTemplates, leads, jobs
                     <select className="form-select" value={leadForm.loanType} onChange={(e) => setLeadForm((p) => ({ ...p, loanType: e.target.value }))}>
                       <option value="LAP">LAP</option><option value="HL">Home Loan</option>
                       <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
+                      <option value="Take Away">Take Away</option>
                     </select>
                   </div>
                   <div className="form-field">
@@ -1075,7 +1076,7 @@ function AdminDashboard({ user, dashboardData, banks, bankTemplates, leads, jobs
                       customerPhone: '9845123456',
                       branch: 'Hosur Branch',
                       location: 'Plot 24, Sri Kamatchi Nagar, Avalapalli, Hosur',
-                      loanType: 'HL',
+                      loanType: 'Take Away',
                       bankRefNo: `APP-${Math.floor(100000 + Math.random() * 900000)}`,
                       receivedDate: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'),
                       priority: 'Normal',
@@ -1259,6 +1260,7 @@ function AdminDashboard({ user, dashboardData, banks, bankTemplates, leads, jobs
                     <select className="form-select" value={taskForm.loanType} onChange={(e) => setTaskForm((p) => ({ ...p, loanType: e.target.value }))}>
                       <option value="LAP">LAP</option><option value="HL">Home Loan</option>
                       <option value="BL">Business Loan</option><option value="OD">Overdraft</option>
+                      <option value="Take Away">Take Away</option>
                     </select>
                   </div>
                   <div className="form-field">

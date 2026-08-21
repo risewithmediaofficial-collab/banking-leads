@@ -153,7 +153,8 @@ async function generateTechnicalReport(details, generatedDir, reportTemplatePath
   const inOGL = details.inOGL ? 'Yes' : 'NA'
   const approvedUsage = details.approvedUsage || details.permittedUsage || 'No approval'
   const customerId = details.customerId || details.clientId || '118 180000001370'
-  const surveyNo = details.surveyNumber || '2835'
+  const surveyNo = details.newSurveyNumber || details.surveyNumber || details.docAddrSurveyNo || '2835'
+  const plotDoor = [details.plotNumber, details.doorNumber, details.propertyNumber].filter(Boolean).join(', ') || 'Door No. 4/529 (As reported)'
   const bldgApprovalNo = details.buildingApprovalNumber || 'No building approval'
   const constructionAsPerPlan = details.constructionAsPerPlan ? 'Yes' : 'NA'
   const demolitionRisk = details.riskOfDemolition || 'LOW'
@@ -498,7 +499,7 @@ async function generateTechnicalReport(details, generatedDir, reportTemplatePath
   rh(r, 36)
   sCell(`B${r}`, '7', { bold: true, size: 14, align: 'center' })
   sCell(`C${r}`, 'Plot No. / Door No. / Property No.', { bold: true, size: 14 })
-  mCell(`D${r}`, `I${r}`, `Door No. 4/529 (As reported)`, { size: 14 })
+  mCell(`D${r}`, `I${r}`, plotDoor, { size: 14 })
   r++
 
   rh(r, 36)
@@ -1047,21 +1048,34 @@ async function generateTechnicalReport(details, generatedDir, reportTemplatePath
     mCell(`B${r}`, `I${r}`, 'Photos of Property', { bold: true, size: 15, align: 'center', fill: headerBlueFill })
     r++
 
-    // Embed photos 3 per row in a clean grid
-    for (let i = 0; i < allPhotos.length; i += 3) {
+    // Embed photos 2 per row in a clean, large grid
+    for (let i = 0; i < allPhotos.length; i += 2) {
       const p1 = allPhotos[i]
       const p2 = allPhotos[i + 1]
-      const p3 = allPhotos[i + 2]
 
-      rh(r, 210)
+      const label1 = p1.label || p1.caption || p1.category || p1.name || 'Property View'
+      const label2 = p2 ? (p2.label || p2.caption || p2.category || p2.name || 'Property View') : ''
+
+      rh(r, 28)
+      mCell(`B${r}`, `E${r}`, `Photo ${i + 1}: ${label1}`, { bold: true, size: 13, align: 'center' })
+      if (p2) {
+        mCell(`F${r}`, `I${r}`, `Photo ${i + 2}: ${label2}`, { bold: true, size: 13, align: 'center' })
+      } else {
+        mCell(`F${r}`, `I${r}`, '', { border: 'all' })
+      }
+      r++
+
+      rh(r, 260)
 
       if (p1) {
         const buf1 = getPhotoBuffer(p1)
         if (buf1) {
           try {
             const imgId = workbook.addImage({ buffer: buf1.buffer, extension: buf1.extension })
-            sheet.addImage(imgId, { tl: { col: 1, row: r - 1 }, ext: { width: 310, height: 200 } })
-          } catch (e) {}
+            sheet.addImage(imgId, { tl: { col: 1, row: r - 1 }, ext: { width: 460, height: 320 } })
+          } catch (e) {
+            console.error('Photo 1 embed error:', e.message)
+          }
         }
       }
       if (p2) {
@@ -1069,20 +1083,13 @@ async function generateTechnicalReport(details, generatedDir, reportTemplatePath
         if (buf2) {
           try {
             const imgId = workbook.addImage({ buffer: buf2.buffer, extension: buf2.extension })
-            sheet.addImage(imgId, { tl: { col: 4, row: r - 1 }, ext: { width: 310, height: 200 } })
-          } catch (e) {}
+            sheet.addImage(imgId, { tl: { col: 5, row: r - 1 }, ext: { width: 460, height: 320 } })
+          } catch (e) {
+            console.error('Photo 2 embed error:', e.message)
+          }
         }
       }
-      if (p3) {
-        const buf3 = getPhotoBuffer(p3)
-        if (buf3) {
-          try {
-            const imgId = workbook.addImage({ buffer: buf3.buffer, extension: buf3.extension })
-            sheet.addImage(imgId, { tl: { col: 7, row: r - 1 }, ext: { width: 310, height: 200 } })
-          } catch (e) {}
-        }
-      }
-      r += 15
+      r += 18
     }
   }
 
